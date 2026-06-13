@@ -1,0 +1,180 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Clinic {
+  id           String        @id @default(cuid())
+  name         String
+  slug         String        @unique
+  createdAt    DateTime      @default(now())
+  users        User[]
+  appointments Appointment[]
+  patients     Patient[]
+  alerts       Alert[]
+}
+
+model User {
+  id           String        @id @default(cuid())
+  email        String
+  passwordHash String
+  name         String?
+  role         Role          @default(DOCTOR)
+  clinicId     String
+  clinic       Clinic        @relation(fields: [clinicId], references: [id])
+  createdAt    DateTime      @default(now())
+  appointments Appointment[]
+  accounts     Account[]
+  sessions     Session[]
+  @@unique([email, clinicId])
+  @@index([clinicId])
+}
+
+enum Role {
+  ADMIN
+  DOCTOR
+  BILLING
+}
+
+model Appointment {
+  id              String            @id @default(cuid())
+  clinicId        String
+  clinic          Clinic            @relation(fields: [clinicId], references: [id])
+  doctorId        String
+  doctor          User              @relation(fields: [doctorId], references: [id])
+  patientId       String
+  patient         Patient           @relation(fields: [patientId], references: [id])
+  appointmentDate DateTime
+  durationMinutes Int
+  appointmentType String
+  status          AppointmentStatus
+  billedCptCode   String?
+  billedAmount    Decimal?
+  createdAt       DateTime          @default(now())
+  @@unique([clinicId, patientId, appointmentDate, doctorId])
+  @@index([clinicId])
+  @@index([doctorId])
+  @@index([patientId])
+}
+
+enum AppointmentStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+model Patient {
+  id           String        @id @default(cuid())
+  clinicId     String
+  clinic       Clinic        @relation(fields: [clinicId], references: [id])
+  name         String
+  dateOfBirth  DateTime?
+  icd10Codes   String[]
+  lastVisitDate DateTime?
+  createdAt    DateTime      @default(now())
+  appointments Appointment[]
+  @@index([clinicId])
+}
+
+model Alert {
+  id              String        @id @default(cuid())
+  clinicId        String
+  clinic          Clinic        @relation(fields: [clinicId], references: [id])
+  metric          String
+  currentValue    Float
+  baselineValue   Float
+  deviationPercent Float
+  severity        AlertSeverity
+  weekOf          DateTime
+  isRead          Boolean       @default(false)
+  createdAt       DateTime      @default(now())
+  @@unique([clinicId, metric, weekOf])
+  @@index([clinicId])
+}
+
+enum AlertSeverity {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+model FollowUpAction {
+  id              String   @id @default(cuid())
+  patientId       String
+  clinicId        String
+  notes           String
+  actionDate      DateTime @default(now())
+  createdByUserId String
+}
+
+model ScribeSession {
+  id            String        @id @default(cuid())
+  clinicId      String
+  doctorId      String
+  patientId     String?
+  appointmentId String?
+  rawTranscript String
+  status        ScribeStatus  @default(DRAFT)
+  createdAt     DateTime      @default(now())
+  soapNote      SoapNote?
+  @@index([clinicId])
+}
+
+enum ScribeStatus {
+  DRAFT
+  PROCESSED
+}
+
+model SoapNote {
+  id                String         @id @default(cuid())
+  scribeSessionId   String         @unique
+  scribeSession     ScribeSession  @relation(fields: [scribeSessionId], references: [id])
+  clinicId          String
+  subjective        String
+  objective         String
+  assessment        String
+  plan              String
+  icd10Codes        String[]
+  suggestedCptCode  String
+  cptRationale      String
+  editedAt          DateTime?
+  approvedAt        DateTime?
+  approvedByUserId  String?
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+  @@unique([identifier, token])
+}
