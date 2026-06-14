@@ -1,59 +1,63 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
 @custom-variant dark (&:is(.dark *));
 
+
 @theme {
-  /* Surfaces */
-  --color-bg:            #F7F8F3;
-  --color-surface:       #FFFFFF;
-  --color-sidebar:       #FFFFFF;
+  /* ── Surfaces ───────────────────────────────────────── */
+  --color-bg:         #F4F1EB; /* warm bone — app background */
+  --color-surface:    #FBFAF7; /* warm white — cards, sidebar */
 
-  /* Brand greens */
-  --color-brand:         #1D4D35;
-  --color-brand-light:   #4CAF7D;
-  --color-brand-muted:   #E8F5EE;
-  --color-brand-grad-to: #2D6B4A;
+  /* ── Secondary accents (extend beyond the browns) ───── */
+  --color-amber: #E8A06A;
+  --color-clay: #9B4E45; /* warm terracotta — secondary actions, hovers, chart-2 */
+  --color-sand: #EEDFD1; /* warm sand — alt surfaces, hover fills, section bands */
 
-  /* States */
-  --color-danger:        #DC2626;
-  --color-danger-bg:     #FEF2F2;
-  --color-warning:       #D97706;
-  --color-warning-bg:    #FFFBEB;
-  --color-info:          #2563EB;
-  --color-info-bg:       #EFF6FF;
+  /* ── Brand (taupe → espresso). #72554D verified from tennr.com ── */
+  --color-brand:        #72554D; /* primary actions, key numbers, active nav */
+  --color-brand-dk:     #4A352E; /* hover / pressed */
+  --color-brand-muted:  #EDE6DF; /* clay tint — badge bg, hover, icon bg */
 
-  /* Neutrals */
-  --color-ink:           #111827;
-  --color-ink-2:         #374151;
-  --color-ink-3:         #6B7280;
-  --color-ink-4:         #9CA3AF;
-  --color-border:        #E5E7EB;
-  --color-border-soft:   #F3F4F6;
-  --color-row-hover:     #F9FAFB;
+  /* ── Ink (warm neutrals) ────────────────────────────── */
+  --color-ink:        #1A1714; /* near-black warm — headings */
+  --color-ink-2:      #4A453F; /* body */
+  --color-ink-3:      #8A827A; /* muted — eyebrows, captions */
 
-  /* Typography — fed by next/font CSS vars set in layout.tsx */
+  /* ── Lines (warm hairlines — "border" is shadcn-reserved) ── */
+  --color-line:       #E3DDD3;
+  --color-line-2:     #D8D0C4; /* stronger — offset card edge */
+
+  /* ── States (muted, warm — never pure red/green) ────── */
+  --color-danger:     #B4423A; --color-danger-bg:  #F7ECEA;
+  --color-warning:    #B07A2E; --color-warning-bg: #F7F0E4;
+  --color-ok:         #4E6B4F; --color-ok-bg:      #ECF0EA; /* sage = positive */
+
+  /* ── Typography (next/font vars from layout.tsx) ────── */
   --font-sans:    var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-grotesk), var(--font-inter), sans-serif;
 
-  /* Radii */
-  --radius-card:  16px;
-  --radius-ctrl:  10px;
-  --radius-badge: 6px;
-  --radius-pill:  999px;
+  /* ── Tracking — the Tennr eyebrow/headline rhythm ───── */
+  --tracking-eyebrow: 0.14em;
+  --tracking-tight:  -0.02em;
 
-  /* Elevation */
-  --shadow-card: 0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.04);
-  --shadow-pop:  0 8px 24px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.04);
-  --shadow-hero: 0 24px 60px rgba(29,77,53,0.18);
+  /* ── Radii — SQUARE, not rounded ────────────────────── */
+  --radius-card:  6px;
+  --radius-ctrl:  6px;
+  --radius-badge: 4px;
+  --radius-pill:  999px; /* avatar / role chips only */
 
-  /* Motion tokens */
+  /* ── Elevation — soft, warm-tinted ──────────────────── */
+  --shadow-card: 0 1px 2px rgba(40,30,20,0.05), 0 8px 24px rgba(40,30,20,0.04);
+  --shadow-pop:  0 8px 24px rgba(40,30,20,0.10), 0 2px 6px rgba(40,30,20,0.05);
+
+  /* ── Motion ─────────────────────────────────────────── */
   --dur-fast:   150ms;
   --dur-base:   220ms;
   --dur-reveal: 600ms;
-  --ease-out:      cubic-bezier(0.25, 1, 0.5, 1);
-  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out:   cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-expo:  cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 @theme inline {
@@ -101,40 +105,42 @@
 }
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --background: #F4F1EB;          /* bone — body + bg-background */
+  --foreground: #1A1714;          /* warm ink */
+  --card: #FBFAF7;
+  --card-foreground: #1A1714;
+  --popover: #FBFAF7;
+  --popover-foreground: #1A1714;
+  --primary: #72554D;             /* taupe — shadcn primary buttons */
+  --primary-foreground: #FBFAF7;
+  --secondary: #EDE6DF;           /* clay */
+  --secondary-foreground: #1A1714;
+  --muted: #EDE6DF;
+  --muted-foreground: #8A827A;
+  --accent: #EDE6DF;              /* light clay — keeps hovers SUBTLE */
+  --accent-foreground: #1A1714;
+  --destructive: #B4423A;         /* warm muted red */
+  --border: #E3DDD3;              /* warm hairline — border-border everywhere */
+  --input: #E3DDD3;
+  --ring: #72554D;                /* focus ring — taupe */
+  --radius: 0.25rem;
+  --chart-1: #72554D;
+  --chart-2: #4E6B4F;
+  --chart-3: #B07A2E;
+  --chart-4: #8A827A;
+  --chart-5: #4A352E;
+  --radius: 0.375rem;             /* 6px — square, was 0.625rem */
+  --sidebar: #FBFAF7;
+  --sidebar-foreground: #1A1714;
+  --sidebar-primary: #72554D;
+  --sidebar-primary-foreground: #FBFAF7;
+  --sidebar-accent: #EDE6DF;
+  --sidebar-accent-foreground: #1A1714;
+  --sidebar-border: #E3DDD3;
+  --sidebar-ring: #72554D;
 }
 
+/* Dark mode is unused (app is light-only) — left as shadcn defaults. */
 .dark {
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
@@ -169,22 +175,100 @@
   --sidebar-ring: oklch(0.556 0 0);
 }
 
+.fade-amber-to-bg {
+  background: linear-gradient(to bottom, transparent, rgba(232,160,106,0.18) 55%, var(--color-bg));
+}
+
 @layer base {
   * {
     box-sizing: border-box;
     @apply border-border outline-ring/50;
   }
   body {
-    background-color: #F7F8F3;
-    font-family: 'Inter', sans-serif;
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sans antialiased;
   }
   html {
-    @apply font-sans-serif;
+    @apply font-sans;
   }
 }
 
-/* --- Landing/dashboard keyframes (plain CSS so they work everywhere) --- */
+
+.grain-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  pointer-events: none;
+  opacity: 0.10;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 220px 220px;
+  animation: grain-shift 8s steps(4) infinite;
+}
+
+.grain-tex {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.05;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='m'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23m)'/%3E%3C/svg%3E");
+}
+
+
+.btn-layered {
+  position: relative;
+  z-index: 1;                       /* face sits above its own shadow layers */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-brand);
+  color: var(--color-surface);
+  border: 1px solid var(--color-brand-dk);
+  border-radius: calc(var(--radius) * 0.6);
+  padding: 0.625rem 1.25rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  /* only shadow + background animate — the box itself never moves */
+  transition: box-shadow var(--dur-base) var(--ease-out),
+              background var(--dur-fast) var(--ease-out);
+  box-shadow:
+    0 0 0 0 rgba(114, 85, 77, 0),
+    0 0 0 0 rgba(114, 85, 77, 0),
+    0 0 0 0 rgba(155, 78, 69, 0);
+}
+.btn-layered:hover {
+  background: var(--color-brand-dk);
+  box-shadow:
+    3px 3px 0 0 rgba(114, 85, 77, 0.55),
+    6px 6px 0 0 rgba(114, 85, 77, 0.32),
+    9px 9px 0 0 rgba(155, 78, 69, 0.20); /* deepest layer warms to clay */
+}
+.btn-layered:active {
+  box-shadow:
+    2px 2px 0 0 rgba(114, 85, 77, 0.5),
+    4px 4px 0 0 rgba(114, 85, 77, 0.28),
+    6px 6px 0 0 rgba(155, 78, 69, 0.16);
+}
+.btn-layered:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 3px var(--color-brand-muted),
+    3px 3px 0 0 rgba(114, 85, 77, 0.55),
+    6px 6px 0 0 rgba(114, 85, 77, 0.32),
+    9px 9px 0 0 rgba(155, 78, 69, 0.20);
+}
+/* reduced motion: layers appear instantly, no growth animation */
+@media (prefers-reduced-motion: reduce) {
+  .btn-layered { transition: none; }
+}
+
+
+@keyframes grain-shift {
+  0%   { transform: translate(0, 0); }
+  25%  { transform: translate(-2%, 1%); }
+  50%  { transform: translate(1%, -2%); }
+  75%  { transform: translate(-1%, 2%); }
+  100% { transform: translate(0, 0); }
+}
+
 @keyframes rise {
   from { opacity: 0; transform: translateY(16px); }
   to   { opacity: 1; transform: translateY(0); }
@@ -198,25 +282,30 @@
 }
 .animate-drift { animation: drift 26s ease-in-out infinite; }
 
+/* Warm shimmer skeleton (was green-tinted) */
 @keyframes shimmer {
   0%   { background-position: -400px 0; }
   100% { background-position: 400px 0; }
 }
 .skeleton {
-  background: linear-gradient(90deg, #EEF0EA 25%, #F7F8F3 50%, #EEF0EA 75%);
+  background: linear-gradient(90deg, #ECE7DE 25%, #F4F1EB 50%, #ECE7DE 75%);
   background-size: 800px 100%;
   animation: shimmer 1.2s linear infinite;
 }
 
-/* Global reduced-motion kill switch — honored on every surface */
+.font-display {
+  font-family: var(--font-grotesk), var(--font-inter), ui-sans-serif, sans-serif;
+}
+
+.font-serif {
+  font-family: var(--font-display-serif), Georgia, "Times New Roman", serif;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation: none !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
-}
-
-.font-display {
-  font-family: var(--font-inter-tight), var(--font-inter), ui-sans-serif, sans-serif;
+  .grain-overlay { animation: none !important; }
 }

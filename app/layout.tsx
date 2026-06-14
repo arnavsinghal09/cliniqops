@@ -1,22 +1,27 @@
 import type { Metadata } from "next";
-import { Inter, Inter_Tight } from "next/font/google";
+import { Inter, Newsreader } from "next/font/google";
 import "./globals.css";
 
+// Inter = body. Newsreader = serif display for the landing (Tennr-style
+// editorial headline). Dashboard headings keep Space Grotesk via font-display
+// if you still use it elsewhere — landing uses .font-serif explicitly.
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-inter",
   display: "swap",
 });
-const interTight = Inter_Tight({
+const newsreader = Newsreader({
   subsets: ["latin"],
-  variable: "--font-inter-tight",
+  weight: ["400", "500", "600"],
+  style: ["normal", "italic"],
+  variable: "--font-display-serif",
   display: "swap",
 });
 
 export const metadata: Metadata = {
-  title: "CliniqOps — Run your clinic, not your spreadsheets",
+  title: "CliniqOps — Move every patient forward",
   description:
-    "Live patient flow, billing status, and staffing in one calm dashboard. Less chasing, fewer no-shows.",
+    "One calm view for patient flow, billing, and staffing. Less chasing, fewer no-shows.",
 };
 
 export default function RootLayout({
@@ -25,8 +30,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`${inter.variable} ${interTight.variable}`}>
-      <body className="bg-bg font-sans text-ink antialiased">{children}</body>
+    <html lang="en" className={`${inter.variable} ${newsreader.variable}`}>
+      <body className="relative bg-bg font-sans text-ink antialiased">
+        <div className="grain-overlay" aria-hidden />
+        <div className="relative z-10">{children}</div>
+      </body>
     </html>
   );
 }

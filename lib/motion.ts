@@ -18,16 +18,25 @@ export const stagger = {
   show: { transition: { staggerChildren: 0.06, delayChildren: 0.05 } },
 };
 
-// Per-word headline mask reveal (translate up from inside overflow-hidden).
+// Per-word headline mask reveal (translate up inside overflow-hidden).
 export const wordReveal = {
   hidden: { y: "110%" },
   show: { y: "0%", transition: { duration: 0.6, ease: easeExpo } },
 };
 
+// SVG border that traces itself — used by the DrawBorder primitive.
+export const drawBorder = {
+  hidden: { pathLength: 0, opacity: 0 },
+  show: {
+    pathLength: 1,
+    opacity: 1,
+    transition: { duration: 0.9, ease: easeExpo },
+  },
+};
+
 /**
- * Count a number up from 0 → target the first time it scrolls into view.
- * Plain requestAnimationFrame (no extra dependency). Respects reduced motion
- * by snapping straight to the target.
+ * Count 0 → target the first time it scrolls into view (once).
+ * Plain rAF, no dependency. Snaps straight to target under reduced motion.
  */
 export function useCountUp(target: number, durationMs = 900) {
   const ref = useRef<HTMLSpanElement>(null);
@@ -45,8 +54,7 @@ export function useCountUp(target: number, durationMs = 900) {
     const start = performance.now();
     const tick = (now: number) => {
       const t = Math.min((now - start) / durationMs, 1);
-      // easeOutExpo for a snappy-then-settle feel.
-      const eased = t === 1 ? 1 : 1 - Math.pow(2, -10 * t);
+      const eased = t === 1 ? 1 : 1 - Math.pow(2, -10 * t); // easeOutExpo
       setValue(Math.round(target * eased));
       if (t < 1) raf = requestAnimationFrame(tick);
     };

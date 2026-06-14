@@ -1,40 +1,72 @@
 "use client";
 
 import Link from "next/link";
-import { Leaf } from "lucide-react";
+import { Square } from "lucide-react";
 import { useEffect, useState } from "react";
 
+// Over the clay hero the nav is transparent with light (sand) text; after
+// 80px it solidifies to a bone surface with ink text. No .map — flat markup.
 export default function LandingNav() {
-  // Toggle solid background once the user scrolls past the hero's top band.
   const [solid, setSolid] = useState(false);
+
   useEffect(() => {
     const onScroll = () => setSolid(window.scrollY > 80);
-    onScroll(); // set correct state on mount (e.g. refresh mid-page)
+    onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
+  const headerClass =
+    "fixed inset-x-0 top-0 z-50 transition-all duration-300 " +
+    (solid
+      ? "border-b border-line bg-surface/90 backdrop-blur-md"
+      : "border-b border-transparent");
+
+  const linkClass = solid
+    ? "text-sm font-medium text-ink-2 transition-colors hover:text-ink"
+    : "text-sm font-medium text-sand/80 transition-colors hover:text-surface";
+
   return (
-    <header
-      className={`fixed inset-x-0 top-0 z-50 transition-all duration-300 ${
-        solid ? "bg-surface/80 shadow-card backdrop-blur-md" : "bg-transparent"
-      }`}
-    >
+    <header className={headerClass}>
       <nav className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-        <Link href="/" className="flex items-center gap-2">
-          <Leaf className="text-brand" size={22} />
-          <span className="text-lg font-semibold text-ink">CliniqOps</span>
+        <Link href="/" className="flex items-center gap-2.5">
+          <Square
+            size={18}
+            className={solid ? "fill-brand text-brand" : "fill-sand text-sand"}
+          />
+          <span
+            className={`font-display text-base font-semibold tracking-tight ${solid ? "text-ink" : "text-surface"}`}
+          >
+            CliniqOps
+          </span>
         </Link>
+
+        <div className="hidden items-center gap-8 md:flex">
+          <a href="#features" className={linkClass}>
+            Features
+          </a>
+          <a href="#flow" className={linkClass}>
+            How it works
+          </a>
+          <a href="#results" className={linkClass}>
+            Results
+          </a>
+        </div>
+
         <div className="flex items-center gap-3">
           <Link
             href="/login"
-            className="rounded-ctrl px-4 py-2 text-sm font-medium text-ink-2 transition-colors hover:bg-bg outline-none focus-visible:ring-2 focus-visible:ring-brand"
+            className={`rounded-sm px-4 py-2 text-sm font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-sand ${
+              solid
+                ? "text-ink-2 hover:bg-sand"
+                : "text-sand/80 hover:text-surface"
+            }`}
           >
             Sign in
           </Link>
           <Link
             href="/login"
-            className="rounded-ctrl bg-brand px-4 py-2 text-sm font-medium text-white transition-all hover:brightness-105 hover:-translate-y-px outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+            className="rounded-sm bg-sand px-4 py-2 text-sm font-semibold uppercase tracking-eyebrow text-ink transition-transform hover:-translate-y-0.5 outline-none focus-visible:ring-2 focus-visible:ring-sand"
           >
             Start free
           </Link>

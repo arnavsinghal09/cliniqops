@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
-import Sidebar from "@/components/sideBar";
-import TopBar from "@/components/topBar";
+import Sidebar from "@/components/sidebar";
+import TopBar from "@/components/topbar";
 
 export default async function DashboardLayout({
   children,
@@ -20,7 +20,7 @@ export default async function DashboardLayout({
       />
       <div className="ml-60 min-h-screen bg-bg">
         <TopBar clinicName={session.user.clinicName} />
-        <main className="p-8 pt-4">{children}</main>
+        <main className="p-8">{children}</main>
       </div>
     </div>
   );

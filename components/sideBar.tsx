@@ -12,13 +12,11 @@ import {
   Bell,
   Mic,
   Settings,
-  Leaf,
+  Square,
 } from "lucide-react";
 
 type Role = "ADMIN" | "DOCTOR" | "BILLING";
 
-// Each item declares which roles may see it. Doctors get Dashboard, Patients,
-// Alerts, Scribe; admins get everything.
 const NAV_ITEMS = [
   {
     label: "Dashboard",
@@ -64,44 +62,44 @@ export default function Sidebar({
   const displayName = name ?? email.split("@")[0];
 
   return (
-    <aside className="fixed left-0 top-0 flex h-screen w-60 flex-col border-r border-border-soft bg-sidebar shadow-sm">
-      {/* Logo */}
-      <div className="flex items-center gap-2 p-6">
-        <Leaf size={20} className="text-brand" />
-        <span className="text-base font-semibold text-ink">CliniqOps</span>
+    // Square edges, warm hairline right border, bone-white surface.
+    <aside className="fixed left-0 top-0 flex h-screen w-60 flex-col border-r border-line bg-surface">
+      {/* Logo — a filled square mark instead of the old leaf, on-brand for boxy. */}
+      <div className="flex items-center gap-2.5 p-6">
+        <Square size={18} className="fill-brand text-brand" />
+        <span className="font-display text-base font-semibold tracking-tight text-ink">
+          CliniqOps
+        </span>
       </div>
 
-      {/* Nav */}
-      <nav className="flex-1 overflow-y-auto">
-        <p className="mb-2 mt-4 px-6 text-[10px] font-medium uppercase tracking-widest text-ink-4">
+      <nav className="flex-1 overflow-y-auto px-2">
+        <p className="mb-2 mt-4 px-4 text-[10px] font-semibold uppercase tracking-eyebrow text-ink-3">
           Main Menu
         </p>
         {items.map(({ label, href, icon: Icon }) => {
           const isActive = pathname === href || pathname.startsWith(`${href}/`);
           return (
-            <Link key={href} href={href} className="relative mx-2 block">
+            <Link key={href} href={href} className="relative block">
               <div
-                className={`relative flex items-center gap-3 rounded-ctrl px-4 py-2.5 text-sm font-medium transition-colors ${
-                  isActive ? "" : "text-ink-3 hover:bg-bg"
+                className={`relative flex items-center gap-3 rounded-sm px-4 py-2.5 text-sm font-medium transition-colors ${
+                  isActive ? "" : "text-ink-3 hover:bg-brand-muted/50"
                 }`}
               >
-                {/* The green pill is a single shared element. layoutId tells
-                    Framer to ANIMATE it from its old position to the new active
-                    item, so it slides between links instead of cutting. */}
+                {/* Sliding taupe active pill — square radius, layoutId animates
+                    it between items instead of cutting. */}
                 {isActive && (
                   <motion.span
                     layoutId="navActive"
-                    className="absolute inset-0 rounded-ctrl bg-brand"
+                    className="absolute inset-0 rounded-sm bg-brand"
                     transition={{ type: "spring", stiffness: 380, damping: 32 }}
                   />
                 )}
-                {/* z-10 keeps icon+label above the pill */}
                 <Icon
-                  size={20}
-                  className={`relative z-10 ${isActive ? "text-white" : ""}`}
+                  size={19}
+                  className={`relative z-10 ${isActive ? "text-surface" : ""}`}
                 />
                 <span
-                  className={`relative z-10 ${isActive ? "text-white" : ""}`}
+                  className={`relative z-10 ${isActive ? "text-surface" : ""}`}
                 >
                   {label}
                 </span>
@@ -111,14 +109,14 @@ export default function Sidebar({
         })}
       </nav>
 
-      {/* User block */}
-      <div className="mx-2 mb-4 flex items-center gap-3 rounded-ctrl bg-bg p-3">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-pill bg-brand text-sm font-medium uppercase text-white">
+      {/* User block — square clay tile, hairline border. */}
+      <div className="m-2 flex items-center gap-3 rounded-sm border border-line bg-brand-muted/40 p-3">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-sm bg-brand text-sm font-semibold uppercase text-surface">
           {displayName.charAt(0)}
         </div>
         <div className="min-w-0">
           <p className="truncate text-sm font-medium text-ink">{displayName}</p>
-          <span className="mt-0.5 inline-block rounded-badge bg-brand-muted px-2 py-0.5 text-[10px] font-medium uppercase text-brand">
+          <span className="mt-0.5 inline-block rounded-sm bg-surface px-2 py-0.5 text-[10px] font-semibold uppercase tracking-eyebrow text-brand">
             {role}
           </span>
         </div>

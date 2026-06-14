@@ -13,9 +13,9 @@ const CLINICS = [
 
 export default function TrustStrip() {
   return (
-    <section className="border-y border-border-soft bg-surface py-10">
+    <section className="border-y border-line bg-surface py-10">
       <div className="mx-auto max-w-6xl px-6">
-        <p className="text-center text-xs font-medium uppercase tracking-[0.16em] text-ink-4">
+        <p className="text-center text-[11px] font-semibold uppercase tracking-eyebrow text-ink-3">
           Trusted by clinic operations teams
         </p>
         <motion.div
@@ -29,7 +29,7 @@ export default function TrustStrip() {
             <motion.span
               key={c}
               variants={rise}
-              className="text-sm font-semibold text-ink-4"
+              className="font-display text-sm font-medium tracking-tight text-ink-3"
             >
               {c}
             </motion.span>

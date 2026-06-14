@@ -8,12 +8,8 @@ export default async function DashboardPage() {
   const session = await auth();
   if (!session) redirect("/login");
 
-  // Doctors see their own numbers; admins see the whole clinic. Same helper
-  // that scopes the Patients page — one source of truth for "what can I see".
   const where = appointmentScope(session);
 
-  // Promise.all runs these counts in PARALLEL — note the contrast with the
-  // upload route's slow sequential loop. Four round-trips, fired at once.
   const [total, completed, noShow, unbilled] = await Promise.all([
     prisma.appointment.count({ where }),
     prisma.appointment.count({ where: { ...where, status: "COMPLETED" } }),
@@ -56,26 +52,24 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      {/* Hero — entrance via the CSS .animate-rise class, so this stays a
-          server component (no framer/client needed for the banner). */}
-      <div
-        className="animate-rise rounded-card p-8 shadow-hero"
-        style={{
-          background:
-            "linear-gradient(135deg, var(--color-brand), var(--color-brand-grad-to))",
-        }}
-      >
-        <p className="text-xs font-medium uppercase tracking-[0.16em] text-brand-light">
-          Good morning
-        </p>
-        <h1 className="mt-2 font-display text-2xl font-semibold text-white md:text-3xl">
-          Welcome back, {greetingName}
-        </h1>
-        <p className="mt-1 text-sm text-white/70">
-          Here&apos;s what&apos;s happening at {session.user.clinicName} today.
-        </p>
+      {/* Hero — taupe surface, square, grain, hairline. Eyebrow over a tight
+          grotesk headline = the Tennr rhythm. Replaces the green gradient. */}
+      <div className="animate-rise relative overflow-hidden rounded-md border border-brand-dk bg-brand p-8">
+        <span aria-hidden className="grain-tex opacity-[0.07]" />
+        <div className="relative">
+          <p className="text-[11px] font-semibold uppercase tracking-eyebrow text-brand-muted">
+            Good morning
+          </p>
+          <h1 className="mt-2 font-display text-2xl font-semibold tracking-tight text-surface md:text-3xl">
+            Welcome back, {greetingName}
+          </h1>
+          <p className="mt-1.5 text-sm text-brand-muted/80">
+            Here&apos;s what&apos;s happening at {session.user.clinicName}{" "}
+            today.
+          </p>
+        </div>
       </div>
-
+      <button className="btn-layered"></button>
       <KpiCards metrics={metrics} />
     </div>
   );

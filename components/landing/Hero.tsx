@@ -1,97 +1,73 @@
 "use client";
-
-import dynamic from "next/dynamic";
+import { useRef } from "react";
 import Link from "next/link";
-import { motion, useReducedMotion } from "framer-motion";
-import { useEffect, useState } from "react";
+import {
+  motion,
+  useMotionValue,
+  useReducedMotion,
+  useScroll,
+  useTransform,
+} from "framer-motion";
 import { stagger, wordReveal } from "@/lib/motion";
-import HeroPoster from "./HeroPoster";
+import LightFan from "./LightFan";
 
-// Lazy-load the 3D scene: ssr:false keeps three/WebGL out of the server render,
-// and the poster shows instantly so the canvas never blocks first paint / LCP.
-const HeroScene = dynamic(() => import("./HeroScene"), {
-  ssr: false,
-  loading: () => <HeroPoster />,
-});
-
-const HEADLINE = [
-  "Every",
-  "appointment,",
-  "claim,",
-  "and",
-  "shift",
-  "—",
-  "in",
-  "one",
-  "calm",
-  "view.",
-];
+const HEADLINE = ["Move", "every", "patient", "forward."];
 
 export default function Hero() {
   const reduce = useReducedMotion();
-  // Only mount the WebGL canvas on a real desktop viewport with motion allowed.
-  // Mobile + reduced-motion get the static poster instead (perf + a11y).
-  const [showCanvas, setShowCanvas] = useState(false);
-  useEffect(() => {
-    const mq = window.matchMedia("(min-width: 768px)");
-    const update = () => setShowCanvas(mq.matches && !reduce);
-    update();
-    mq.addEventListener("change", update);
-    return () => mq.removeEventListener("change", update);
-  }, [reduce]);
+  const mx = useMotionValue(0);
+  const my = useMotionValue(0);
+
+  const sectionRef = useRef<HTMLElement>(null);
+  // Progress 0 (hero fully in view) → 1 (scrolled one viewport past).
+  const { scrollYProgress } = useScroll({
+    target: sectionRef,
+    offset: ["start start", "end start"],
+  });
+  // The fan fades and drifts down as you scroll, dissolving into the glow.
+  const fanOpacity = useTransform(scrollYProgress, [0, 0.6], [1, 0]);
+  const fanY = useTransform(scrollYProgress, [0, 1], [0, 80]);
+
+  function onPointerMove(e: React.PointerEvent<HTMLElement>) {
+    if (reduce) return;
+    const r = e.currentTarget.getBoundingClientRect();
+    mx.set((e.clientX - r.left) / r.width - 0.5);
+    my.set((e.clientY - r.top) / r.height - 0.5);
+  }
+  function onPointerLeave() {
+    mx.set(0);
+    my.set(0);
+  }
 
   return (
-    <section className="relative overflow-hidden pt-32 pb-20">
-      {/* Animated gradient mesh — slow drift, low opacity, sits behind content */}
-      <div
-        aria-hidden
-        className="animate-drift pointer-events-none absolute -top-1/3 left-1/2 -z-10 h-[140%] w-[140%] -translate-x-1/2 opacity-60"
-        style={{
-          background:
-            "radial-gradient(40% 40% at 30% 30%, #E8F5EE 0%, transparent 70%), radial-gradient(35% 35% at 75% 40%, #DCEFE4 0%, transparent 70%)",
-        }}
-      />
-      {/* Grain overlay — the cheapest "not AI-generated" signal. SVG turbulence. */}
-      <svg
-        aria-hidden
-        className="pointer-events-none absolute inset-0 -z-10 h-full w-full opacity-[0.035]"
-      >
-        <filter id="grain">
-          <feTurbulence
-            type="fractalNoise"
-            baseFrequency="0.8"
-            numOctaves="2"
-            stitchTiles="stitch"
-          />
-        </filter>
-        <rect width="100%" height="100%" filter="url(#grain)" />
-      </svg>
-
-      <div className="mx-auto grid max-w-6xl grid-cols-1 items-center gap-10 px-6 md:grid-cols-2">
-        {/* Left: copy */}
+    <section
+      ref={sectionRef}
+      onPointerMove={onPointerMove}
+      onPointerLeave={onPointerLeave}
+      className="relative flex min-h-[100svh] items-center overflow-hidden bg-clay pt-24"
+    >
+      <div className="mx-auto grid w-full max-w-6xl grid-cols-1 items-center gap-12 px-6 md:grid-cols-2">
         <div>
-          <p className="text-xs font-medium uppercase tracking-[0.16em] text-brand-light">
-            Run your clinic, not your spreadsheets
+          <p className="text-[11px] font-semibold uppercase tracking-eyebrow text-sand/70">
+            Patient flow · Billing · Staffing
           </p>
 
-          {/* Headline: each word rises out of an overflow-hidden mask, staggered.
-              This is the single high-impact type moment — used once, here only. */}
           <motion.h1
             variants={stagger}
             initial="hidden"
             animate="show"
-            className="mt-4 font-display text-4xl font-semibold leading-[1.08] tracking-tight text-ink md:text-5xl lg:text-[56px]"
+            className="mt-5 font-serif text-5xl font-medium leading-[1.04] text-surface md:text-6xl lg:text-[4.25rem]"
           >
-            {HEADLINE.map((word, i) => (
+            {HEADLINE.map((w, i) => (
               <span
                 key={i}
                 className="inline-block overflow-hidden align-bottom"
               >
                 <motion.span
                   variants={wordReveal}
-                  className="mr-[0.25em] inline-block"
+                  className="mr-[0.22em] inline-block"
                 >
-                  {word}
+                  {w}
                 </motion.span>
               </span>
             ))}
@@ -100,40 +76,55 @@ export default function Hero() {
           <motion.p
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.5, duration: 0.5 }}
-            className="mt-5 max-w-md text-base text-ink-2"
+            transition={{ delay: 0.55, duration: 0.5 }}
+            className="mt-6 max-w-md text-[15px] leading-relaxed text-sand/85"
           >
-            CliniqOps gives front-desk and ops teams live patient flow, billing
-            status, and staffing in a single dashboard. Less chasing, fewer
-            no-shows.
+            CliniqOps shows front-desk and ops teams live patient flow, billing
+            status, and staffing in one calm view. Less chasing, fewer no-shows.
           </motion.p>
 
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.65, duration: 0.5 }}
-            className="mt-8 flex flex-wrap gap-3"
+            transition={{ delay: 0.7, duration: 0.5 }}
+            className="mt-9 flex flex-wrap gap-3"
           >
             <Link
               href="/login"
-              className="rounded-ctrl bg-brand px-6 py-3 text-sm font-medium text-white transition-all hover:brightness-105 hover:-translate-y-px active:translate-y-0 outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+              className="rounded-sm bg-sand px-6 py-3 text-sm font-semibold uppercase tracking-eyebrow text-ink transition-transform hover:-translate-y-0.5 outline-none focus-visible:ring-2 focus-visible:ring-sand focus-visible:ring-offset-2 focus-visible:ring-offset-clay"
             >
               Start free
             </Link>
             <Link
               href="/login"
-              className="rounded-ctrl border border-border bg-surface px-6 py-3 text-sm font-medium text-ink-2 transition-colors hover:bg-bg outline-none focus-visible:ring-2 focus-visible:ring-brand"
+              className="rounded-sm border border-sand/40 px-6 py-3 text-sm font-semibold uppercase tracking-eyebrow text-sand transition-colors hover:bg-sand/10 outline-none focus-visible:ring-2 focus-visible:ring-sand"
             >
               Book a demo
             </Link>
           </motion.div>
         </div>
 
-        {/* Right: the 3D signature (or static poster) */}
-        <div className="relative h-90 md:h-115">
-          {showCanvas ? <HeroScene /> : <HeroPoster />}
-        </div>
+        <motion.div
+          style={{ opacity: fanOpacity, y: fanY }}
+          className="flex justify-start"
+        >
+          <LightFan mx={mx} my={my} />
+        </motion.div>
       </div>
+
+      <div className="absolute inset-x-0 bottom-6 flex justify-center">
+        <span className="text-[11px] font-semibold uppercase tracking-eyebrow text-sand/60">
+          Scroll
+        </span>
+      </div>
+
+      {/* Scroll-merge: clay dissolves into the bone section below. The next
+          section is bg-bg, so fading clay → bg at the seam removes the hard
+          edge and they "merge" as you scroll, like Tennr. */}
+      <div
+        aria-hidden
+        className="fade-amber-to-bg pointer-events-none absolute inset-x-0 bottom-0 h-40"
+      />
     </section>
   );
 }
