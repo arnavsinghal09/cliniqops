@@ -197,7 +197,7 @@ export default function PatientDrawer({
             <div className="relative space-y-3 pl-5">
               <span
                 aria-hidden
-                className="absolute left-[5px] top-1 h-[calc(100%-0.5rem)] w-px bg-line-2"
+                className="absolute left-1.25 top-1 h-[calc(100%-0.5rem)] w-px bg-line-2"
               />
               {followUps.map((f) => (
                 <div key={f.id} className="relative">
@@ -241,7 +241,7 @@ export default function PatientDrawer({
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             placeholder="Called patient, left voicemail about overdue review…"
-            className="mt-2 min-h-[80px] rounded-sm border-line bg-surface text-sm text-ink focus-visible:ring-brand"
+            className="mt-2 min-h-20 rounded-sm border-line bg-surface text-sm text-ink focus-visible:ring-brand"
           />
           <button
             type="button"

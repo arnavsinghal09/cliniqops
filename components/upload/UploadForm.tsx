@@ -14,6 +14,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import SectionLabel from "../ui-kit/SectionLabel";
 
 type UploadResult = {
   imported: number;
@@ -109,8 +110,7 @@ export default function UploadForm() {
         try {
           const body = JSON.parse(xhr.responseText) as { error?: string };
           if (body.error) msg = body.error;
-        } catch {
-        }
+        } catch {}
         setStatus("error");
         setErrorMsg(msg);
       }
@@ -128,13 +128,11 @@ export default function UploadForm() {
   return (
     <div className="max-w-3xl">
       {/* Header */}
-      <h1 className="text-2xl font-semibold text-ink">
-        Upload Appointment Data
-      </h1>
-      <p className="mt-1 text-sm text-ink-3">
-        Import scheduling and billing exports from your practice management
-        system
-      </p>
+      <SectionLabel
+        eyebrow="Import scheduling and billing exports from your practice management
+        system"
+        title="Upload Appointment Data"
+      />
 
       {/* Dropzone */}
       <div
