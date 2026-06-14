@@ -1,13 +1,8 @@
 import prisma from "@/lib/prisma";
-import { AppointmentStatus } from "@/lib/generated/prisma/client";
+import { AppointmentStatus } from "@/lib/generated/prisma/enums";
 
-// All KPI queries take ONE params object. clinicId always comes from the
-// server session at the call site — never from user input — so these are safe
-// to call directly inside Server Components.
 type KpiParams = { clinicId: string; startDate: Date; endDate: Date };
 
-// email "dr.sharma@sunrise.com" → "Dr.sharma" → "Dr.sharma". We take the part
-// before @ and capitalise the first letter, per spec.
 function nameFromEmail(email: string): string {
   const local = email.split("@")[0];
   return local.charAt(0).toUpperCase() + local.slice(1);
