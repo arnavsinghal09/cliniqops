@@ -8,7 +8,6 @@ import bcrypt from "bcryptjs";
 const adapter = new PrismaPg({ connectionString: process.env.DIRECT_URL! });
 const prisma = new PrismaClient({ adapter });
 
-// Email handle -> display name. Drives both the seed and the dashboard greeting.
 const DOCTORS: Record<string, string> = {
   "dr.sharma": "Dr. Anjali Sharma",
   "dr.patel": "Dr. Rohan Patel",
@@ -31,8 +30,6 @@ async function main() {
     create: { name: "Metro Health", slug: "metro" },
   });
 
-  // Doctors. `update: { name }` backfills the name onto rows seeded before the
-  // name column existed — re-running the seed repairs old data.
   for (const [handle, name] of Object.entries(DOCTORS)) {
     await prisma.user.upsert({
       where: {

@@ -62,9 +62,7 @@ export default function Sidebar({
   const displayName = name ?? email.split("@")[0];
 
   return (
-    // Square edges, warm hairline right border, bone-white surface.
     <aside className="fixed left-0 top-0 flex h-screen w-60 flex-col border-r border-line bg-surface">
-      {/* Logo — a filled square mark instead of the old leaf, on-brand for boxy. */}
       <div className="flex items-center gap-2.5 p-6">
         <Square size={18} className="fill-brand text-brand" />
         <span className="font-display text-base font-semibold tracking-tight text-ink">
@@ -85,8 +83,6 @@ export default function Sidebar({
                   isActive ? "" : "text-ink-3 hover:bg-brand-muted/50"
                 }`}
               >
-                {/* Sliding taupe active pill — square radius, layoutId animates
-                    it between items instead of cutting. */}
                 {isActive && (
                   <motion.span
                     layoutId="navActive"
@@ -108,8 +104,6 @@ export default function Sidebar({
           );
         })}
       </nav>
-
-      {/* User block — square clay tile, hairline border. */}
       <div className="m-2 flex items-center gap-3 rounded-sm border border-line bg-brand-muted/40 p-3">
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-sm bg-brand text-sm font-semibold uppercase text-surface">
           {displayName.charAt(0)}

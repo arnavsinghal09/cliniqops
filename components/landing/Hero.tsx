@@ -19,12 +19,10 @@ export default function Hero() {
   const my = useMotionValue(0);
 
   const sectionRef = useRef<HTMLElement>(null);
-  // Progress 0 (hero fully in view) → 1 (scrolled one viewport past).
   const { scrollYProgress } = useScroll({
     target: sectionRef,
     offset: ["start start", "end start"],
   });
-  // The fan fades and drifts down as you scroll, dissolving into the glow.
   const fanOpacity = useTransform(scrollYProgress, [0, 0.6], [1, 0]);
   const fanY = useTransform(scrollYProgress, [0, 1], [0, 80]);
 
@@ -44,7 +42,7 @@ export default function Hero() {
       ref={sectionRef}
       onPointerMove={onPointerMove}
       onPointerLeave={onPointerLeave}
-      className="relative flex min-h-[100svh] items-center overflow-hidden bg-clay pt-24"
+      className="relative flex min-h-svh items-center overflow-hidden bg-clay pt-24"
     >
       <div className="mx-auto grid w-full max-w-6xl grid-cols-1 items-center gap-12 px-6 md:grid-cols-2">
         <div>
@@ -117,10 +115,6 @@ export default function Hero() {
           Scroll
         </span>
       </div>
-
-      {/* Scroll-merge: clay dissolves into the bone section below. The next
-          section is bg-bg, so fading clay → bg at the seam removes the hard
-          edge and they "merge" as you scroll, like Tennr. */}
       <div
         aria-hidden
         className="fade-amber-to-bg pointer-events-none absolute inset-x-0 bottom-0 h-40"

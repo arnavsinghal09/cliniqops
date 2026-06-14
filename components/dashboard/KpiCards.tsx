@@ -14,7 +14,6 @@ type Metric = {
 
 function MetricCard({ m }: { m: Metric }) {
   const { ref, value } = useCountUp(m.value);
-  // Tone drives the left accent bar color (warm states, never pure red/green).
   const bar =
     m.tone === "alert"
       ? "bg-danger"
@@ -27,7 +26,7 @@ function MetricCard({ m }: { m: Metric }) {
       <LayeredCard interactive className="p-0">
         <div className="relative p-5">
           <span
-            className={`absolute left-0 top-0 h-full w-[3px] ${bar}`}
+            className={`absolute left-0 top-0 h-full w-0.75 ${bar}`}
             aria-hidden
           />
           <p className="text-[11px] font-semibold uppercase tracking-eyebrow text-ink-3">

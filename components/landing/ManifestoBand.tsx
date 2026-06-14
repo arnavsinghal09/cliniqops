@@ -1,11 +1,6 @@
 "use client";
 
 import { motion } from "framer-motion";
-
-// The eye-catching slot for "Run your clinic, not your spreadsheets." A dark
-// espresso full-width band with one large serif line and nothing else — a
-// deliberate pause that breaks the clay→bone rhythm. The line reveals once on
-// scroll. Grain via the inner texture so the dark field isn't flat.
 export default function ManifestoBand() {
   return (
     <section className="relative overflow-hidden bg-brand-dk py-28 md:py-36">
@@ -19,7 +14,6 @@ export default function ManifestoBand() {
           className="font-serif text-4xl font-medium leading-[1.1] tracking-tight text-surface md:text-5xl lg:text-6xl"
         >
           Run your clinic,{" "}
-          {/* second clause in amber italic for emphasis — the eye-catch */}
           <span className="italic text-amber">not your spreadsheets.</span>
         </motion.h2>
         <motion.p

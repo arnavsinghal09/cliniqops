@@ -4,8 +4,6 @@ import Link from "next/link";
 import { Square } from "lucide-react";
 import { useEffect, useState } from "react";
 
-// Over the clay hero the nav is transparent with light (sand) text; after
-// 80px it solidifies to a bone surface with ink text. No .map — flat markup.
 export default function LandingNav() {
   const [solid, setSolid] = useState(false);
 

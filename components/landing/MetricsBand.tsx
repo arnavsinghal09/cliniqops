@@ -45,7 +45,6 @@ function Stat({
 }
 
 export default function MetricsBand() {
-  // Espresso band — the dark moment of the page. Grain via inner texture.
   return (
     <section
       id="results"

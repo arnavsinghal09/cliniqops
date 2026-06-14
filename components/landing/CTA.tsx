@@ -5,7 +5,6 @@ import DrawBorder from "@/components/ui-kit/DrawBorder";
 import SectionLabel from "@/components/ui-kit/SectionLabel";
 
 export default function CTA() {
-  // Calm closing band: a single self-drawing framed box on sand, centered.
   return (
     <section className="mx-auto max-w-4xl px-6 pb-28">
       <DrawBorder radius={6}>

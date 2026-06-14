@@ -15,15 +15,12 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 
-// Shape of the JSON our /api/upload/appointments route returns.
 type UploadResult = {
   imported: number;
   skipped: number;
   errors: Array<{ row: number; reason: string }>;
 };
 
-// The four states the form can be in. Keeping this as a union (not loose
-// booleans) means the UI can only ever show one outcome at a time.
 type Status = "idle" | "uploading" | "success" | "error";
 
 const EXPECTED_COLUMNS: Array<{ col: string; desc: string }> = [
@@ -60,7 +57,6 @@ export default function UploadForm() {
   const [errorMsg, setErrorMsg] = useState<string>("");
   const [dragging, setDragging] = useState(false);
 
-  // Accept a file only if it looks like a CSV; reset any prior result.
   function acceptFile(f: File | undefined | null) {
     if (!f) return;
     if (!f.name.toLowerCase().endsWith(".csv")) {
@@ -83,9 +79,6 @@ export default function UploadForm() {
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
-  // We use raw XMLHttpRequest (not fetch) specifically because fetch can't
-  // report *upload* progress. xhr.upload.onprogress gives real byte-level
-  // progress, which is what the spec asks for — no fake timer.
   function handleUpload() {
     if (!file) return;
     setStatus("uploading");
@@ -102,7 +95,6 @@ export default function UploadForm() {
     };
 
     xhr.onload = () => {
-      // Any 2xx is a handled response (even partial imports return 200).
       if (xhr.status >= 200 && xhr.status < 300) {
         try {
           const parsed = JSON.parse(xhr.responseText) as UploadResult;
@@ -113,13 +105,11 @@ export default function UploadForm() {
           setErrorMsg("Server returned an unexpected response.");
         }
       } else {
-        // Non-2xx: surface the server's error message if it sent one.
         let msg = `Upload failed (${xhr.status}).`;
         try {
           const body = JSON.parse(xhr.responseText) as { error?: string };
           if (body.error) msg = body.error;
         } catch {
-          /* keep default msg */
         }
         setStatus("error");
         setErrorMsg(msg);
@@ -234,7 +224,6 @@ export default function UploadForm() {
         {status === "uploading" ? "Uploading…" : "Upload"}
       </button>
 
-      {/* Success card — the one quiet reveal on this page */}
       {status === "success" && result && (
         <div className="mt-6 animate-rise rounded-card bg-brand-muted p-6">
           <div className="flex items-start gap-3">
@@ -279,7 +268,6 @@ export default function UploadForm() {
         </div>
       )}
 
-      {/* STEP 4 — Expected CSV format accordion */}
       <Collapsible className="mt-10">
         <CollapsibleTrigger className="text-sm font-medium text-ink-2 outline-none focus-visible:ring-2 focus-visible:ring-brand rounded-badge">
           ▸ Expected CSV format

@@ -42,13 +42,10 @@ export default function Features() {
       >
         {FEATURES.map((f) => (
           <motion.div key={f.title} variants={rise} className="relative">
-            {/* Offset sand layer behind = stacked-paper depth. */}
             <div
               aria-hidden
               className="absolute left-1.5 top-1.5 h-full w-full rounded-md border border-line-2 bg-sand/50"
             />
-            {/* DrawBorder supplies the self-tracing hairline (the "// draw
-                border paths" signature); the inner surface carries grain. */}
             <DrawBorder radius={6} className="relative">
               <div className="relative overflow-hidden rounded-md bg-surface p-7">
                 <span aria-hidden className="grain-tex" />

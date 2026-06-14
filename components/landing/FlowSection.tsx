@@ -4,8 +4,6 @@ import { useMotionValue, useReducedMotion } from "framer-motion";
 import SectionLabel from "@/components/ui-kit/SectionLabel";
 import FlowBoard from "./FlowBoard";
 
-// The flow board lives here now (below the hero) on a calm bone section, where
-// its light surfaces read cleanly. Owns its own cursor tracking for the tilt.
 export default function FlowSection() {
   const reduce = useReducedMotion();
   const mx = useMotionValue(0);

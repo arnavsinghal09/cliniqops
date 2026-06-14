@@ -140,7 +140,6 @@
   --sidebar-ring: #72554D;
 }
 
-/* Dark mode is unused (app is light-only) — left as shadcn defaults. */
 .dark {
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
