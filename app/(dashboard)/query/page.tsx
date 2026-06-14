@@ -1,5 +1,5 @@
 import SectionLabel from "@/components/ui-kit/SectionLabel";
-import { NLQueryInterface } from "./NLQueryInterface";
+import NLQueryInterface from "./NLQueryInterface";
 
 // Async Server Component. No data fetched here — the interface is interactive
 // and drives the runNlQuery Server Action on demand.

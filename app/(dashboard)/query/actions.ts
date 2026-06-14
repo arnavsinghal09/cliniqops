@@ -5,45 +5,64 @@ import { auth } from "@/auth";
 import { getGeminiModel } from "@/lib/gemini";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 
-// Shape returned to the client component for every query attempt.
+export type CellValue = string | number | boolean | null;
+export type QueryRow = Record<string, CellValue>;
+
 export type NlQueryResult = {
-  rows: any[];
+  rows: QueryRow[];
   columns: string[];
   suggestedChartType: "bar" | "line" | "table";
   sql: string | null;
   error: string | null;
 };
 
-// Word-boundary regex instead of a naive substring scan.
-// A plain includes("CREATE") would FALSE-POSITIVE on the legitimate "createdAt"
-// column. \bCREATE\b will not match "createdAt" because the trailing "d" is a
-// word character, so we keep DDL/DML blocked without breaking valid SELECTs.
-const FORBIDDEN_KEYWORDS =
-  /\b(DROP|DELETE|UPDATE|INSERT|TRUNCATE|ALTER|CREATE|GRANT|REVOKE)\b/i;
+const questionSchema = z.string().min(1).max(500);
+
+const FORBIDDEN = [
+  "DROP",
+  "DELETE",
+  "UPDATE",
+  "INSERT",
+  "TRUNCATE",
+  "ALTER",
+  "CREATE",
+  "GRANT",
+  "REVOKE",
+] as const;
+
+function stripFences(text: string): string {
+  let t = text.trim();
+  if (t.startsWith("```")) {
+    t = t
+      .replace(/^```(?:sql)?\s*/i, "")
+      .replace(/```\s*$/, "")
+      .trim();
+  }
+  return t;
+}
 
 export async function runNlQuery(question: string): Promise<NlQueryResult> {
-  // Reusable empty payload for early returns.
-  const empty = {
-    rows: [] as any[],
-    columns: [] as string[],
-    suggestedChartType: "table" as const,
-    sql: null as string | null,
-    error: null as string | null,
+  const empty: NlQueryResult = {
+    rows: [],
+    columns: [],
+    suggestedChartType: "table",
+    sql: null,
+    error: null,
   };
 
-  // 1. Auth: derive clinicId from the session, never from the client.
+  // 1. Auth + tenant.
   const session = await auth();
   if (!session) throw new Error("Unauthorized");
   const clinicId = session.user.clinicId;
 
-  // 2. Validate the raw question.
-  const parsed = z.string().min(1).max(500).safeParse(question);
+  // 2. Validate input.
+  const parsed = questionSchema.safeParse(question);
   if (!parsed.success) {
     return { ...empty, error: "Invalid question" };
   }
   const userQuestion = parsed.data;
 
-  // 3. System prompt with the clinicId baked in as a hard constraint.
+  // 3. System prompt (clinicId embedded into the hard tenant rule).
   const systemPrompt = `You are a read-only SQL analyst for a healthcare clinic. Convert the user question into a single PostgreSQL SELECT query.
 HARD RULES — if any rule would be violated, respond with exactly the word UNSAFE and nothing else:
 Rule 1: The query MUST contain the exact substring "clinicId" = '${clinicId}' in a WHERE clause.
@@ -59,140 +78,124 @@ CPT REFERENCE: 99211=0-9min=$24, 99212=10-19min=$46, 99213=20-29min=$77, 99214=3
 ICD-10 PATTERNS: diabetes='E11%', hypertension='I10%', asthma='J45%', hyperlipidaemia='E78%' — to match use: EXISTS (SELECT 1 FROM unnest("icd10Codes") c WHERE c LIKE 'E11%')
 Return ONLY the raw SQL. No markdown, no backticks, no explanation.`;
 
-  // 4. Eight few-shot user/model pairs. All mixed-case identifiers are double-quoted
-  //    so Postgres does not fold them to lowercase. Each model answer embeds the
-  //    real clinicId literal so the model learns to always include it.
-  const fewShot = [
+  const fewShot: { q: string; sql: string }[] = [
     {
-      role: "user",
-      parts: [{ text: "Which doctor has the worst no-show rate this month?" }],
+      q: "Which doctor has the worst no-show rate this month?",
+      sql: `SELECT u.email AS doctor, ROUND(100.0 * COUNT(*) FILTER (WHERE a.status = 'NO_SHOW') / NULLIF(COUNT(*), 0), 1) AS no_show_rate
+FROM "Appointment" a
+JOIN "User" u ON a."doctorId" = u.id
+WHERE a."clinicId" = '${clinicId}'
+  AND a."appointmentDate" >= date_trunc('month', CURRENT_DATE)
+GROUP BY u.email
+ORDER BY no_show_rate DESC`,
     },
     {
-      role: "model",
-      parts: [
-        {
-          text: `SELECT u.email AS doctor, ROUND(100.0 * COUNT(*) FILTER (WHERE a.status = 'NO_SHOW') / NULLIF(COUNT(*), 0), 1) AS no_show_rate FROM "Appointment" a JOIN "User" u ON a."doctorId" = u.id WHERE a."clinicId" = '${clinicId}' AND date_trunc('month', a."appointmentDate") = date_trunc('month', CURRENT_DATE) GROUP BY u.email ORDER BY no_show_rate DESC`,
-        },
-      ],
+      q: "Show me diabetic patients with no visit in the last 6 months",
+      sql: `SELECT name, "lastVisitDate"
+FROM "Patient"
+WHERE "clinicId" = '${clinicId}'
+  AND EXISTS (SELECT 1 FROM unnest("icd10Codes") c WHERE c LIKE 'E11%')
+  AND "lastVisitDate" < CURRENT_DATE - INTERVAL '6 months'
+ORDER BY "lastVisitDate" ASC`,
     },
     {
-      role: "user",
-      parts: [{ text: "Show me diabetic patients with no visit in 6 months" }],
+      q: "What is our total revenue in the last 7 days?",
+      sql: `SELECT COALESCE(SUM("billedAmount"), 0) AS total_revenue
+FROM "Appointment"
+WHERE "clinicId" = '${clinicId}'
+  AND "appointmentDate" >= CURRENT_DATE - INTERVAL '7 days'`,
     },
     {
-      role: "model",
-      parts: [
-        {
-          text: `SELECT name, "lastVisitDate" FROM "Patient" WHERE "clinicId" = '${clinicId}' AND EXISTS (SELECT 1 FROM unnest("icd10Codes") c WHERE c LIKE 'E11%') AND "lastVisitDate" < CURRENT_DATE - INTERVAL '6 months' ORDER BY "lastVisitDate" ASC`,
-        },
-      ],
+      q: "What is our cancellation rate by day of week?",
+      sql: `SELECT EXTRACT(DOW FROM "appointmentDate") AS day_of_week, ROUND(100.0 * COUNT(*) FILTER (WHERE status = 'CANCELLED') / NULLIF(COUNT(*), 0), 1) AS cancellation_rate
+FROM "Appointment"
+WHERE "clinicId" = '${clinicId}'
+GROUP BY day_of_week
+ORDER BY day_of_week`,
     },
     {
-      role: "user",
-      parts: [{ text: "What is our total revenue in the last 7 days?" }],
+      q: "Which appointment types are most commonly unbilled?",
+      sql: `SELECT "appointmentType", COUNT(*) AS unbilled_count
+FROM "Appointment"
+WHERE "clinicId" = '${clinicId}'
+  AND "billedCptCode" IS NULL
+GROUP BY "appointmentType"
+ORDER BY unbilled_count DESC`,
     },
     {
-      role: "model",
-      parts: [
-        {
-          text: `SELECT SUM("billedAmount") AS total_revenue FROM "Appointment" WHERE "clinicId" = '${clinicId}' AND "appointmentDate" >= CURRENT_DATE - INTERVAL '7 days'`,
-        },
-      ],
+      q: "What is the average appointment duration per doctor?",
+      sql: `SELECT u.email AS doctor, ROUND(AVG(a."durationMinutes"), 1) AS avg_duration_minutes
+FROM "Appointment" a
+JOIN "User" u ON a."doctorId" = u.id
+WHERE a."clinicId" = '${clinicId}'
+GROUP BY u.email
+ORDER BY avg_duration_minutes DESC`,
     },
     {
-      role: "user",
-      parts: [{ text: "What is our cancellation rate by day of week?" }],
+      q: "How do no-shows this month compare to last month?",
+      sql: `SELECT to_char(date_trunc('month', "appointmentDate"), 'YYYY-MM') AS month, COUNT(*) AS no_shows
+FROM "Appointment"
+WHERE "clinicId" = '${clinicId}'
+  AND status = 'NO_SHOW'
+  AND "appointmentDate" >= date_trunc('month', CURRENT_DATE) - INTERVAL '1 month'
+GROUP BY month
+ORDER BY month`,
     },
     {
-      role: "model",
-      parts: [
-        {
-          text: `SELECT EXTRACT(DOW FROM "appointmentDate") AS day_of_week, ROUND(100.0 * COUNT(*) FILTER (WHERE status = 'CANCELLED') / NULLIF(COUNT(*), 0), 1) AS cancellation_rate FROM "Appointment" WHERE "clinicId" = '${clinicId}' GROUP BY EXTRACT(DOW FROM "appointmentDate") ORDER BY day_of_week`,
-        },
-      ],
-    },
-    {
-      role: "user",
-      parts: [{ text: "Which appointment types are most commonly unbilled?" }],
-    },
-    {
-      role: "model",
-      parts: [
-        {
-          text: `SELECT "appointmentType", COUNT(*) AS unbilled_count FROM "Appointment" WHERE "clinicId" = '${clinicId}' AND "billedCptCode" IS NULL GROUP BY "appointmentType" ORDER BY unbilled_count DESC`,
-        },
-      ],
-    },
-    {
-      role: "user",
-      parts: [{ text: "What is the average appointment duration per doctor?" }],
-    },
-    {
-      role: "model",
-      parts: [
-        {
-          text: `SELECT u.email AS doctor, ROUND(AVG(a."durationMinutes"), 1) AS avg_duration FROM "Appointment" a JOIN "User" u ON a."doctorId" = u.id WHERE a."clinicId" = '${clinicId}' GROUP BY u.email ORDER BY avg_duration DESC`,
-        },
-      ],
-    },
-    {
-      role: "user",
-      parts: [{ text: "How do no-shows this month compare to last month?" }],
-    },
-    {
-      role: "model",
-      parts: [
-        {
-          text: `SELECT date_trunc('month', "appointmentDate") AS month, COUNT(*) FILTER (WHERE status = 'NO_SHOW') AS no_shows FROM "Appointment" WHERE "clinicId" = '${clinicId}' AND "appointmentDate" >= date_trunc('month', CURRENT_DATE) - INTERVAL '1 month' GROUP BY date_trunc('month', "appointmentDate") ORDER BY month`,
-        },
-      ],
-    },
-    {
-      role: "user",
-      parts: [{ text: "Which patients have not visited in over 90 days?" }],
-    },
-    {
-      role: "model",
-      parts: [
-        {
-          text: `SELECT name, "lastVisitDate" FROM "Patient" WHERE "clinicId" = '${clinicId}' AND "lastVisitDate" < CURRENT_DATE - INTERVAL '90 days' ORDER BY "lastVisitDate" ASC`,
-        },
-      ],
+      q: "Which patients haven't visited in over 90 days?",
+      sql: `SELECT name, "lastVisitDate"
+FROM "Patient"
+WHERE "clinicId" = '${clinicId}'
+  AND "lastVisitDate" < CURRENT_DATE - INTERVAL '90 days'
+ORDER BY "lastVisitDate" ASC`,
     },
   ];
 
-  // Ask Gemini, appending the real question as the final user turn.
+  const contents = [
+    ...fewShot.flatMap((ex) => [
+      { role: "user", parts: [{ text: ex.q }] },
+      { role: "model", parts: [{ text: ex.sql }] },
+    ]),
+    { role: "user", parts: [{ text: userQuestion }] },
+  ];
+
+  // 4. Call Gemini.
   let raw: string;
   try {
     const model = getGeminiModel();
-    const response = await model.generateContent({
+    const result = await model.generateContent({
       systemInstruction: systemPrompt,
-      contents: [...fewShot, { role: "user", parts: [{ text: userQuestion }] }],
+      contents,
     });
-    raw = response.response.text().trim();
-  } catch {
-    return { ...empty, error: "Failed to generate a query. Please try again." };
+    raw = result.response.text();
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (
+      /429|quota|rate.?limit|resource_exhausted|too many requests/i.test(msg)
+    ) {
+      return {
+        ...empty,
+        error:
+          "Rate limit reached on the Gemini free tier (5 requests/minute). Wait about a minute, then try again.",
+      };
+    }
+    return { ...empty, error: "Couldn't generate a query — please try again." };
   }
 
-  // Defensive: strip markdown fences if the model ignored the "no backticks" rule.
-  let sql = raw;
-  if (sql.startsWith("```")) {
-    sql = sql.replace(/^```(?:sql)?/i, "").replace(/```$/, "").trim();
-  }
-
-  // 5. Explicit refusal short-circuit.
+  // 5. UNSAFE gate.
+  const sql = stripFences(raw);
   if (sql.toUpperCase() === "UNSAFE") {
     return { ...empty, error: "This question can't be answered safely" };
   }
 
-  // 6. Belt-and-braces validation in our own code (do not trust the model).
-  const upper = sql.toUpperCase();
-  const startsWithSelect = upper.startsWith("SELECT");
-  const hasClinicScope = sql.includes(`"clinicId" = '${clinicId}'`);
-  const hasForbidden = FORBIDDEN_KEYWORDS.test(sql);
-
-  if (!startsWithSelect || !hasClinicScope || hasForbidden) {
-    return { ...empty, sql, error: "Generated query failed safety validation" };
+  // 6. Safety validation. Word boundaries so "createdAt" doesn't trip "CREATE".
+  const startsWithSelect = /^SELECT/i.test(sql);
+  const containsClinicId = sql.includes(`'${clinicId}'`);
+  const hasForbidden = FORBIDDEN.some((kw) =>
+    new RegExp(`\\b${kw}\\b`, "i").test(sql),
+  );
+  if (!startsWithSelect || !containsClinicId || hasForbidden) {
+    return { ...empty, error: "Generated query failed safety validation" };
   }
 
   // 7. Execute via the read-only RPC.
@@ -203,25 +206,28 @@ Return ONLY the raw SQL. No markdown, no backticks, no explanation.`;
     return { ...empty, sql, error: error.message };
   }
 
-  // 8. Normalise rows + derive column names from the first row.
-  const rows = (data as any[]) ?? [];
+  // 8. Shape rows/columns.
+  const rows: QueryRow[] = Array.isArray(data) ? (data as QueryRow[]) : [];
   const columns = rows.length > 0 ? Object.keys(rows[0]) : [];
 
-  // 9. Chart-type heuristic. Note: "appointmentDate" already contains "DATE",
-  //    so any time-grouped query naturally routes to a line chart.
-  let suggestedChartType: "bar" | "line" | "table" = "table";
-  if (upper.includes("GROUP BY")) {
-    if (
-      upper.includes("DATE") ||
-      upper.includes("DOW") ||
-      upper.includes("DATE_TRUNC")
-    ) {
-      suggestedChartType = "line";
-    } else {
-      suggestedChartType = "bar";
-    }
-  }
+  // 9. Suggested chart type — inspect ONLY the GROUP BY clause for temporal grouping.
+  const lower = sql.toLowerCase();
+  const hasGroupBy = /\bgroup\s+by\b/.test(lower);
+  const groupByMatch = lower.match(
+    /\bgroup\s+by\b([\s\S]*?)(?:\border\s+by\b|\blimit\b|\bhaving\b|$)/,
+  );
+  const groupByClause = groupByMatch ? groupByMatch[1] : "";
+  const temporalGroup =
+    /extract\s*\(\s*(dow|month|year|day|week|quarter)/.test(groupByClause) ||
+    /date_trunc|to_char/.test(groupByClause) ||
+    /\b(month|day_of_week|dow|weekday|week|date|period|quarter|year)\b/.test(
+      groupByClause,
+    );
 
-  // 10. Success.
+  let suggestedChartType: "bar" | "line" | "table";
+  if (hasGroupBy && temporalGroup) suggestedChartType = "line";
+  else if (hasGroupBy) suggestedChartType = "bar";
+  else suggestedChartType = "table";
+
   return { rows, columns, suggestedChartType, sql, error: null };
 }
