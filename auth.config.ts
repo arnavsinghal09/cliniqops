@@ -16,14 +16,14 @@ export default {
       return token;
     },
     async session({ session, token }) {
-      // Rebuild session.user from the token so client/server can read these.
-      if (token) {
+      if (session.user) {
         session.user.id = token.sub!;
         session.user.name = (token.name as string | null) ?? null;
         session.user.role = token.role as string;
         session.user.clinicId = token.clinicId as string;
         session.user.clinicName = token.clinicName as string;
       }
+
       return session;
     },
   },

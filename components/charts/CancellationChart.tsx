@@ -35,7 +35,7 @@ export default function CancellationChart({ data }: { data: Row[] }) {
         />
         <Tooltip
           cursor={{ stroke: chart.line() }}
-          formatter={(v: number) => [
+          formatter={(v) => [
             `${Number(v).toFixed(1)}%`,
             "Cancellation",
           ]}

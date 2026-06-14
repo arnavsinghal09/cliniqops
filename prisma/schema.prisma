@@ -69,15 +69,16 @@ enum AppointmentStatus {
 }
 
 model Patient {
-  id           String        @id @default(cuid())
-  clinicId     String
-  clinic       Clinic        @relation(fields: [clinicId], references: [id])
-  name         String
-  dateOfBirth  DateTime?
-  icd10Codes   String[]
-  lastVisitDate DateTime?
-  createdAt    DateTime      @default(now())
-  appointments Appointment[]
+  id              String           @id @default(cuid())
+  clinicId        String
+  clinic          Clinic           @relation(fields: [clinicId], references: [id])
+  name            String
+  dateOfBirth     DateTime?
+  icd10Codes      String[]
+  lastVisitDate   DateTime?
+  createdAt       DateTime         @default(now())
+  appointments    Appointment[]
+  followUpActions FollowUpAction[]
   @@index([clinicId])
 }
 
@@ -106,10 +107,13 @@ enum AlertSeverity {
 model FollowUpAction {
   id              String   @id @default(cuid())
   patientId       String
+  patient         Patient  @relation(fields: [patientId], references: [id])
   clinicId        String
   notes           String
   actionDate      DateTime @default(now())
   createdByUserId String
+  @@index([clinicId])
+  @@index([patientId])
 }
 
 model ScribeSession {

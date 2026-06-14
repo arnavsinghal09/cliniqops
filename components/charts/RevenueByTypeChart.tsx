@@ -39,8 +39,8 @@ export default function RevenueByTypeChart({ data }: { data: Row[] }) {
         />
         <Tooltip
           cursor={{ fill: "transparent" }}
-          formatter={(v: number) => [
-            `₹${v.toLocaleString("en-IN")}`,
+          formatter={(v) => [
+            `₹${(v || "").toLocaleString("en-IN")}`,
             "Revenue",
           ]}
           contentStyle={{

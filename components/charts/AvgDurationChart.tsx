@@ -9,6 +9,7 @@ import {
   ResponsiveContainer,
   CartesianGrid,
 } from "recharts";
+
 import { chart } from "./chartTheme";
 
 type Row = { doctorName: string; avgMinutes: number };
@@ -39,7 +40,7 @@ export default function AvgDurationChart({ data }: { data: Row[] }) {
         />
         <Tooltip
           cursor={{ fill: "transparent" }}
-          formatter={(v: number) => [`${v} min`, "Avg duration"]}
+          formatter={(v) => [`$${Number(v ?? 0)} min`, "Avg duration"]}
           contentStyle={{
             borderRadius: 4,
             border: `1px solid ${chart.line()}`,

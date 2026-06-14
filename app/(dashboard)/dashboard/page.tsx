@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { subDays } from "date-fns";
 import { auth } from "@/auth";
@@ -9,7 +10,11 @@ import {
   getUnbilledVisitsByDoctor,
   getDashboardSummary,
 } from "@/lib/queries/kpi";
-import MetricCard from "@/components/MetricCard";
+import { countRedOverduePatients } from "@/lib/queries/patients";
+import MetricCard from "@/components/ui-kit/MetricCard";
+import SectionLabel from "@/components/ui-kit/SectionLabel";
+import LayeredCard from "@/components/ui-kit/LayeredCard";
+import CountUp from "@/components/ui-kit/CountUp";
 import NoShowRateChart from "@/components/charts/NoShowRateChart";
 import RevenueByTypeChart from "@/components/charts/RevenueByTypeChart";
 import CancellationChart from "@/components/charts/CancellationChart";
@@ -31,27 +36,41 @@ export default async function DashboardPage({
   const sp = await searchParams;
   const endDate = sp.end ? new Date(sp.end) : new Date();
   const startDate = sp.start ? new Date(sp.start) : subDays(new Date(), 90);
-
   const params = { clinicId, startDate, endDate };
 
-  // All six queries in parallel.
-  const [noShow, revenue, cancellation, avgDuration, unbilled, summary] =
-    await Promise.all([
-      getNoShowRateByDoctor(params),
-      getRevenueByAppointmentType(params),
-      getCancellationRateByWeekday(params),
-      getAvgDurationByDoctor(params),
-      getUnbilledVisitsByDoctor(params),
-      getDashboardSummary(params),
-    ]);
+  const [
+    noShow,
+    revenue,
+    cancellation,
+    avgDuration,
+    unbilled,
+    summary,
+    redOverdue,
+  ] = await Promise.all([
+    getNoShowRateByDoctor(params),
+    getRevenueByAppointmentType(params),
+    getCancellationRateByWeekday(params),
+    getAvgDurationByDoctor(params),
+    getUnbilledVisitsByDoctor(params),
+    getDashboardSummary(params),
+    countRedOverduePatients(clinicId),
+  ]);
 
   const worstDoctor = noShow[0];
-
   const startStr = startDate.toISOString().slice(0, 10);
   const endStr = endDate.toISOString().slice(0, 10);
 
+  // Overdue card tone: danger >10, warning >0, ok at 0.
+  const overdueBorder =
+    redOverdue > 10
+      ? "border-l-danger"
+      : redOverdue > 0
+        ? "border-l-warning"
+        : "border-l-ok";
+
   return (
     <div className="space-y-6">
+      {/* Hero banner */}
       <div className="relative flex items-center justify-between overflow-hidden rounded-md border border-brand-dk bg-brand p-8">
         <span aria-hidden className="grain-tex opacity-[0.07]" />
         <div className="relative">
@@ -74,7 +93,6 @@ export default async function DashboardPage({
             </p>
           )}
         </div>
-
         <div className="relative flex h-28 w-28 shrink-0 flex-col items-center justify-center rounded-full bg-surface/10">
           <span className="font-display text-4xl font-bold text-surface">
             {summary.overallNoShowRate.toFixed(0)}%
@@ -83,6 +101,25 @@ export default async function DashboardPage({
         </div>
       </div>
 
+      {/* Overdue follow-up card — full width, links to pre-filtered Patients. */}
+      <Link
+        href="/patients?status=RED"
+        className="block outline-none focus-visible:ring-2 focus-visible:ring-brand rounded-md"
+      >
+        <LayeredCard
+          className={`p-6 border-l-[3px] ${overdueBorder} transition-transform duration-200 hover:-translate-y-0.5`}
+        >
+          <SectionLabel eyebrow="Follow-ups" title="" level={3} />
+          <p className="font-display text-[32px] font-bold leading-none tracking-tight text-ink">
+            <CountUp value={redOverdue} />
+          </p>
+          <p className="mt-1 text-[13px] text-ink-3">
+            patients overdue for follow-up
+          </p>
+        </LayeredCard>
+      </Link>
+
+      {/* Date filter */}
       <form
         method="GET"
         className="flex flex-wrap items-center gap-4 rounded-md border border-line bg-surface px-4 py-3 shadow-card"
@@ -114,6 +151,7 @@ export default async function DashboardPage({
         </button>
       </form>
 
+      {/* Metric cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <MetricCard
           eyebrow="Total Revenue"
@@ -142,7 +180,7 @@ export default async function DashboardPage({
         />
       </div>
 
-      {/* ── D) CHARTS GRID ── */}
+      {/* Charts grid */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <ChartCard
           title="No-Show Rate by Doctor"
