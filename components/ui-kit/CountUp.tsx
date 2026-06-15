@@ -10,13 +10,20 @@ type Props = {
   value: number;
   durationMs?: number;
   className?: string;
+  /** Optional formatter applied to the live count, e.g. (n) => `${n}%`. */
+  format?: (n: number) => string;
 };
 
-export default function CountUp({ value, durationMs, className }: Props) {
+export default function CountUp({
+  value,
+  durationMs,
+  className,
+  format,
+}: Props) {
   const { ref, value: current } = useCountUp(value, durationMs);
   return (
     <span ref={ref} className={className}>
-      {current}
+      {format ? format(current) : current}
     </span>
   );
 }

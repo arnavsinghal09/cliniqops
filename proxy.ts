@@ -6,7 +6,7 @@ const { auth } = NextAuth(authConfig);
 
 // Public to everyone (logged in or out).
 const PUBLIC_EXACT = ["/"];
-const PUBLIC_PREFIXES = ["/api/auth"];
+const PUBLIC_PREFIXES = ["/api/auth", "/api/cron"];
 // Auth pages: public to logged-OUT users, but redirect logged-IN users away.
 const AUTH_PAGES = ["/login"];
 

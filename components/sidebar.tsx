@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-
 import { usePathname } from "next/navigation";
 import { logout } from "@/app/(dashboard)/actions";
 import { motion, LayoutGroup } from "framer-motion";
@@ -20,6 +19,11 @@ import {
 import { memo, useMemo } from "react";
 
 type Role = "ADMIN" | "DOCTOR" | "BILLING";
+
+const ROLES: readonly Role[] = ["ADMIN", "DOCTOR", "BILLING"];
+function isRole(r: string): r is Role {
+  return (ROLES as readonly string[]).includes(r);
+}
 
 const NAV_ITEMS = [
   {
@@ -55,18 +59,21 @@ const NAV_ITEMS = [
 const NavList = memo(function NavList({
   activeHref,
   role,
+  unreadCount,
 }: {
   activeHref: string | null;
-  role: string;
+  role: Role;
+  unreadCount: number;
 }) {
   const items = NAV_ITEMS.filter((i) =>
-    (i.roles as readonly Role[]).includes(role as Role),
+    (i.roles as readonly Role[]).includes(role),
   );
 
   return (
     <LayoutGroup id="sidebar-nav">
       {items.map(({ label, href, icon: Icon }) => {
         const isActive = href === activeHref;
+        const showBadge = href === "/alerts" && unreadCount > 0;
         return (
           <Link key={href} href={href} className="relative block">
             <div className="relative flex items-center gap-3 rounded-sm px-4 py-2.5 text-sm font-medium transition-colors">
@@ -83,10 +90,26 @@ const NavList = memo(function NavList({
                 className={`relative z-10 ${isActive ? "text-surface" : "text-ink-3"}`}
               />
               <span
-                className={`relative z-10 ${isActive ? "text-surface" : "text-ink-3"}`}
+                className={`relative z-10 flex-1 ${isActive ? "text-surface" : "text-ink-3"}`}
               >
                 {label}
               </span>
+              {showBadge && (
+                <span
+                  className="relative z-10 inline-flex items-center justify-center"
+                  style={{
+                    width: 18,
+                    height: 18,
+                    borderRadius: "50%",
+                    background: "#B4423A",
+                    color: "#FBFAF7",
+                    fontSize: 10,
+                    fontWeight: 600,
+                  }}
+                >
+                  {unreadCount > 9 ? "9+" : unreadCount}
+                </span>
+              )}
             </div>
           </Link>
         );
@@ -95,18 +118,21 @@ const NavList = memo(function NavList({
   );
 });
 
-
-
 export default function Sidebar({
   name,
   email,
   role,
+  unreadCount = 0,
 }: {
   name: string | null;
   email: string;
   role: string;
+  unreadCount?: number;
 }) {
   const pathname = usePathname();
+
+  // Narrow the session role string to a real union; fall back to least-access.
+  const safeRole: Role = isRole(role) ? role : "BILLING";
 
   const activeHref = useMemo(() => {
     const match = NAV_ITEMS.find(
@@ -138,7 +164,11 @@ export default function Sidebar({
         <p className="mb-2 mt-4 px-4 text-[10px] font-semibold uppercase tracking-eyebrow text-ink-3">
           Main Menu
         </p>
-        <NavList activeHref={activeHref} role={role} />
+        <NavList
+          activeHref={activeHref}
+          role={safeRole}
+          unreadCount={unreadCount}
+        />
       </nav>
 
       {/* User block + sign out */}

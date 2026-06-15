@@ -82,26 +82,28 @@ model Patient {
   @@index([clinicId])
 }
 
-model Alert {
-  id              String        @id @default(cuid())
-  clinicId        String
-  clinic          Clinic        @relation(fields: [clinicId], references: [id])
-  metric          String
-  currentValue    Float
-  baselineValue   Float
-  deviationPercent Float
-  severity        AlertSeverity
-  weekOf          DateTime
-  isRead          Boolean       @default(false)
-  createdAt       DateTime      @default(now())
-  @@unique([clinicId, metric, weekOf])
-  @@index([clinicId])
-}
-
 enum AlertSeverity {
   LOW
   MEDIUM
   HIGH
+}
+
+model Alert {
+  id               String        @id @default(cuid())
+  clinicId         String
+  clinic           Clinic        @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  alertType        String
+  metric           String
+  currentValue     Float
+  baselineValue    Float
+  deviationPercent Float
+  severity         AlertSeverity
+  weekOf           DateTime
+  isRead           Boolean       @default(false)
+  createdAt        DateTime      @default(now())
+
+  @@unique([clinicId, metric, weekOf])
+  @@index([clinicId])
 }
 
 model FollowUpAction {

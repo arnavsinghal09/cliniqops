@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
+import prisma  from "@/lib/prisma";
 import Sidebar from "@/components/sidebar";
 import TopBar from "@/components/topbar";
 
@@ -11,16 +12,23 @@ export default async function DashboardLayout({
   const session = await auth();
   if (!session) redirect("/login");
 
+  const { user } = session;
+
+  const unreadCount = await prisma.alert.count({
+    where: { clinicId: user.clinicId, isRead: false },
+  });
+
   return (
-    <div className="min-h-screen bg-bg">
+    <div className="flex h-screen bg-bg">
       <Sidebar
-        name={session.user.name}
-        email={session.user.email}
-        role={session.user.role}
+        name={user.name ?? null}
+        email={user.email}
+        role={user.role}
+        unreadCount={unreadCount}
       />
-      <div className="ml-60 min-h-screen bg-bg">
-        <TopBar clinicName={session.user.clinicName} />
-        <main className="p-8">{children}</main>
+      <div className="flex flex-1 flex-col overflow-hidden pl-60">
+        <TopBar clinicName={user.clinicName ?? "Clinic"} />
+        <main className="flex-1 overflow-y-auto p-6">{children}</main>
       </div>
     </div>
   );
