@@ -8,28 +8,66 @@ datasource db {
 }
 
 model Clinic {
-  id           String        @id @default(cuid())
-  name         String
-  slug         String        @unique
-  createdAt    DateTime      @default(now())
-  users        User[]
-  appointments Appointment[]
-  patients     Patient[]
-  alerts       Alert[]
+  id               String        @id @default(cuid())
+  name             String
+  slug             String        @unique
+  addressLine      String?
+  city             String?
+  phone            String?
+  timezone         String        @default("Asia/Kolkata")
+  workingHoursJson String?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @default(now()) @updatedAt
+  users            User[]
+  appointments     Appointment[]
+  patients         Patient[]
+  alerts           Alert[]
+  invitations      Invitation[]
+  auditLogs        AuditLog[]
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+model Invitation {
+  id        String   @id @default(cuid())
+  clinicId  String
+  clinic    Clinic   @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  email     String
+  name      String?
+  title     String?
+  role      Role     @default(DOCTOR)
+  token     String   @unique @default(cuid())
+  accepted  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+
+  @@unique([email, clinicId])
+  @@index([clinicId])
 }
 
 model User {
-  id           String        @id @default(cuid())
-  email        String
-  passwordHash String
-  name         String?
-  role         Role          @default(DOCTOR)
-  clinicId     String
-  clinic       Clinic        @relation(fields: [clinicId], references: [id])
-  createdAt    DateTime      @default(now())
-  appointments Appointment[]
-  accounts     Account[]
-  sessions     Session[]
+  id                String        @id @default(cuid())
+  email             String
+  passwordHash      String
+  name              String?
+  title             String?
+  phone             String?
+  avatarUrl         String?
+  role              Role          @default(DOCTOR)
+  status            UserStatus    @default(ACTIVE)
+  mustResetPassword Boolean       @default(false)
+  clinicId          String
+  clinic            Clinic        @relation(fields: [clinicId], references: [id])
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @default(now()) @updatedAt
+  appointments      Appointment[]
+  accounts          Account[]
+  sessions          Session[]
+  auditLogs         AuditLog[]    @relation("AuditActor")
+
   @@unique([email, clinicId])
   @@index([clinicId])
 }
@@ -116,6 +154,23 @@ model FollowUpAction {
   createdByUserId String
   @@index([clinicId])
   @@index([patientId])
+}
+
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  clinicId   String
+  clinic     Clinic   @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  actorId    String
+  actor      User     @relation("AuditActor", fields: [actorId], references: [id])
+  action     String
+  targetType String
+  targetId   String?
+  detail     String?
+  createdAt  DateTime @default(now())
+
+  @@index([clinicId])
+  @@index([createdAt])
 }
 
 model ScribeSession {

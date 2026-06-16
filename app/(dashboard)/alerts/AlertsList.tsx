@@ -7,6 +7,7 @@ import {
   TrendingUp,
   TrendingDown,
   ChevronRight,
+  ArrowRight,
 } from "lucide-react";
 import {
   Sheet,
@@ -117,10 +118,6 @@ export default function AlertsList({ alerts }: { alerts: AlertRow[] }) {
         {alerts.map((a) => {
           const sev = sevOf(a.severity);
           const up = a.deviationPercent >= 0;
-          const W = 220;
-          const H = 44;
-          const line = linePoints(a.trend, W, H);
-          const area = `0,${H} ${line} ${W},${H}`;
           return (
             <button
               key={a.id}
@@ -132,12 +129,11 @@ export default function AlertsList({ alerts }: { alerts: AlertRow[] }) {
                 border: `1px solid ${C.border2}`,
                 borderLeft: `3px solid ${sev.color}`,
                 borderRadius: 6,
-                padding: "16px 18px",
+                padding: "16px 20px",
                 cursor: "pointer",
-                display: "grid",
-                gridTemplateColumns: "minmax(190px, 250px) 1fr auto 18px",
+                display: "flex",
                 alignItems: "center",
-                gap: 24,
+                gap: 22,
                 boxShadow: "0 1px 2px rgba(40,30,20,0.05)",
                 transition: "box-shadow 150ms, transform 150ms",
                 width: "100%",
@@ -153,38 +149,49 @@ export default function AlertsList({ alerts }: { alerts: AlertRow[] }) {
                 e.currentTarget.style.transform = "translateY(0)";
               }}
             >
-              {/* Col 1: badge + metric + date */}
+              {/* Anchor: big deviation, fixed width so all rows align */}
               <div
                 style={{
+                  width: 132,
+                  flexShrink: 0,
                   display: "flex",
                   alignItems: "center",
-                  gap: 12,
-                  minWidth: 0,
+                  gap: 6,
+                  color: sev.color,
                 }}
               >
+                {up ? (
+                  <TrendingUp size={20} strokeWidth={2.4} />
+                ) : (
+                  <TrendingDown size={20} strokeWidth={2.4} />
+                )}
                 <span
                   style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 4,
-                    background: sev.bg,
-                    color: sev.color,
-                    fontSize: 10,
+                    fontSize: 26,
                     fontWeight: 700,
-                    textTransform: "uppercase",
-                    letterSpacing: "0.07em",
-                    padding: "3px 7px",
-                    borderRadius: 4,
-                    flexShrink: 0,
+                    letterSpacing: "-0.02em",
                   }}
                 >
-                  <AlertTriangle size={11} strokeWidth={2.4} />
-                  {sev.label}
+                  {fmtDev(a.deviationPercent)}
                 </span>
-                <div style={{ minWidth: 0 }}>
+              </div>
+
+              {/* Divider */}
+              <span
+                style={{
+                  width: 1,
+                  alignSelf: "stretch",
+                  background: C.border,
+                  flexShrink: 0,
+                }}
+              />
+
+              {/* Metric + severity + date */}
+              <div style={{ minWidth: 0, flexShrink: 0, width: 230 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <p
                     style={{
-                      fontSize: 14,
+                      fontSize: 14.5,
                       fontWeight: 600,
                       color: C.ink,
                       margin: 0,
@@ -193,65 +200,66 @@ export default function AlertsList({ alerts }: { alerts: AlertRow[] }) {
                   >
                     {prettyMetric(a.metric)}
                   </p>
-                  <p
-                    style={{ fontSize: 11.5, color: C.ink3, margin: "2px 0 0" }}
+                  <span
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 3,
+                      background: sev.bg,
+                      color: sev.color,
+                      fontSize: 9.5,
+                      fontWeight: 700,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.06em",
+                      padding: "2px 6px",
+                      borderRadius: 4,
+                      flexShrink: 0,
+                    }}
                   >
-                    {format(new Date(a.weekOf), "dd MMM yyyy")}
-                  </p>
+                    <AlertTriangle size={10} strokeWidth={2.4} />
+                    {sev.label}
+                  </span>
                 </div>
-              </div>
-
-              {/* Col 2: wide sparkline fills the slack */}
-              <div style={{ minWidth: 0 }}>
-                <svg
-                  width="100%"
-                  height={H}
-                  viewBox={`0 0 ${W} ${H}`}
-                  preserveAspectRatio="none"
-                  style={{ display: "block" }}
-                >
-                  <polygon points={area} fill={sev.color} fillOpacity={0.07} />
-                  <polyline
-                    points={line}
-                    stroke={sev.color}
-                    strokeWidth={1.5}
-                    fill="none"
-                    strokeLinejoin="round"
-                    strokeLinecap="round"
-                    vectorEffect="non-scaling-stroke"
-                  />
-                </svg>
-              </div>
-
-              {/* Col 3: deviation + inline values */}
-              <div style={{ textAlign: "right", whiteSpace: "nowrap" }}>
-                <span
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 4,
-                    fontSize: 22,
-                    fontWeight: 700,
-                    letterSpacing: "-0.02em",
-                    color: sev.color,
-                  }}
-                >
-                  {up ? (
-                    <TrendingUp size={16} strokeWidth={2.4} />
-                  ) : (
-                    <TrendingDown size={16} strokeWidth={2.4} />
-                  )}
-                  {fmtDev(a.deviationPercent)}
-                </span>
                 <p style={{ fontSize: 11.5, color: C.ink3, margin: "3px 0 0" }}>
-                  {fmtMetricValue(a.metric, a.currentValue)}{" "}
-                  <span style={{ color: C.border2 }}>·</span> baseline{" "}
-                  {fmtMetricValue(a.metric, a.baselineValue)}
+                  Week of {format(new Date(a.weekOf), "dd MMM yyyy")}
                 </p>
               </div>
 
-              {/* Col 4: affordance */}
-              <ChevronRight size={18} strokeWidth={2} color={C.ink3} />
+              {/* this week → baseline comparison pill */}
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  marginLeft: "auto",
+                  flexShrink: 0,
+                }}
+              >
+                <ValueChip
+                  label="This week"
+                  value={fmtMetricValue(a.metric, a.currentValue)}
+                  emphasis={sev.color}
+                />
+                <ArrowRight
+                  size={15}
+                  strokeWidth={2}
+                  color={C.ink3}
+                  style={{ flexShrink: 0 }}
+                />
+                <ValueChip
+                  label="Baseline"
+                  value={fmtMetricValue(a.metric, a.baselineValue)}
+                  emphasis={C.ink2}
+                />
+              </div>
+
+              {/* affordance */}
+              <ChevronRight
+                size={18}
+                strokeWidth={2}
+                color={C.ink3}
+                style={{ flexShrink: 0 }}
+              />
             </button>
           );
         })}
@@ -282,6 +290,54 @@ export default function AlertsList({ alerts }: { alerts: AlertRow[] }) {
         </SheetContent>
       </Sheet>
     </>
+  );
+}
+
+function ValueChip({
+  label,
+  value,
+  emphasis,
+}: {
+  label: string;
+  value: string;
+  emphasis: string;
+}) {
+  return (
+    <div
+      style={{
+        background: C.bg,
+        border: `1px solid ${C.border}`,
+        borderRadius: 6,
+        padding: "7px 12px",
+        textAlign: "center",
+        minWidth: 78,
+      }}
+    >
+      <p
+        style={{
+          fontSize: 9,
+          textTransform: "uppercase",
+          letterSpacing: "0.07em",
+          color: C.ink3,
+          fontWeight: 600,
+          margin: 0,
+        }}
+      >
+        {label}
+      </p>
+      <p
+        style={{
+          fontSize: 15,
+          fontWeight: 700,
+          color: emphasis,
+          margin: "2px 0 0",
+          letterSpacing: "-0.01em",
+          whiteSpace: "nowrap",
+        }}
+      >
+        {value}
+      </p>
+    </div>
   );
 }
 
@@ -325,7 +381,6 @@ function DetailBody({ alert }: { alert: AlertRow }) {
         </SheetTitle>
       </SheetHeader>
 
-      {/* Deviation banner */}
       <div
         style={{
           display: "flex",
@@ -373,7 +428,6 @@ function DetailBody({ alert }: { alert: AlertRow }) {
         </span>
       </div>
 
-      {/* Summary */}
       <p
         style={{
           fontSize: 14,
@@ -393,7 +447,6 @@ function DetailBody({ alert }: { alert: AlertRow }) {
         .
       </p>
 
-      {/* Stat boxes */}
       <div style={{ display: "flex", gap: 12, marginBottom: 24 }}>
         <StatBox
           label="This week"
@@ -407,7 +460,6 @@ function DetailBody({ alert }: { alert: AlertRow }) {
         />
       </div>
 
-      {/* Trend */}
       <p
         style={{
           fontSize: 11,
@@ -462,7 +514,6 @@ function DetailBody({ alert }: { alert: AlertRow }) {
         </div>
       </div>
 
-      {/* Why flagged */}
       <Section label="Why this was flagged">
         Deviation from baseline{" "}
         {THRESHOLD[alert.severity] ?? "exceeded the threshold"}, which
@@ -471,7 +522,6 @@ function DetailBody({ alert }: { alert: AlertRow }) {
         severity.
       </Section>
 
-      {/* Suggested next step */}
       <Section label="Suggested next step">{tip}</Section>
 
       <p style={{ fontSize: 12, color: C.ink3, margin: "8px 0 0" }}>

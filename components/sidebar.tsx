@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { logout } from "@/app/(dashboard)/actions";
 import { motion, LayoutGroup } from "framer-motion";
+import { canAccess } from "@/lib/permissions";
 import {
   LayoutDashboard,
   Users,
@@ -65,9 +66,7 @@ const NavList = memo(function NavList({
   role: Role;
   unreadCount: number;
 }) {
-  const items = NAV_ITEMS.filter((i) =>
-    (i.roles as readonly Role[]).includes(role),
-  );
+  const items = NAV_ITEMS.filter((i) => canAccess(role, i.href));
 
   return (
     <LayoutGroup id="sidebar-nav">

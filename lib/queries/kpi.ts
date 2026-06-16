@@ -1,7 +1,8 @@
 import prisma from "@/lib/prisma";
 import { AppointmentStatus } from "@/lib/generated/prisma/enums";
+import type { Scope } from "@/lib/queries/scope";
 
-type KpiParams = { clinicId: string; startDate: Date; endDate: Date };
+type KpiParams = { scope: Scope; startDate: Date; endDate: Date };
 
 function nameFromEmail(email: string): string {
   const local = email.split("@")[0];
@@ -9,19 +10,20 @@ function nameFromEmail(email: string): string {
 }
 
 // ── Function 1 ────────────────────────────────────────────────────────────
-// No-show rate per doctor. Prisma groupBy across the doctor relation is
-// awkward, so we fetch with the doctor's email included and group in JS.
 export async function getNoShowRateByDoctor({
-  clinicId,
+  scope,
   startDate,
   endDate,
 }: KpiParams) {
   const appts = await prisma.appointment.findMany({
-    where: { clinicId, appointmentDate: { gte: startDate, lte: endDate } },
+    where: {
+      clinicId: scope.clinicId,
+      ...(scope.doctorId ? { doctorId: scope.doctorId } : {}),
+      appointmentDate: { gte: startDate, lte: endDate },
+    },
     include: { doctor: { select: { email: true } } },
   });
 
-  // Map keyed by doctor email → running totals.
   const byDoctor = new Map<string, { total: number; noShows: number }>();
   for (const a of appts) {
     const key = a.doctor.email;
@@ -42,15 +44,15 @@ export async function getNoShowRateByDoctor({
 }
 
 // ── Function 2 ────────────────────────────────────────────────────────────
-// Revenue grouped by appointmentType, COMPLETED with a billed amount only.
 export async function getRevenueByAppointmentType({
-  clinicId,
+  scope,
   startDate,
   endDate,
 }: KpiParams) {
   const appts = await prisma.appointment.findMany({
     where: {
-      clinicId,
+      clinicId: scope.clinicId,
+      ...(scope.doctorId ? { doctorId: scope.doctorId } : {}),
       appointmentDate: { gte: startDate, lte: endDate },
       status: AppointmentStatus.COMPLETED,
       billedAmount: { not: null },
@@ -64,8 +66,6 @@ export async function getRevenueByAppointmentType({
       totalRevenue: 0,
       count: 0,
     };
-    // billedAmount is Prisma Decimal | null — guarded by the where clause, but
-    // we still coerce defensively with Number().
     entry.totalRevenue += a.billedAmount ? Number(a.billedAmount) : 0;
     entry.count += 1;
     byType.set(a.appointmentType, entry);
@@ -77,18 +77,20 @@ export async function getRevenueByAppointmentType({
 }
 
 // ── Function 3 ────────────────────────────────────────────────────────────
-// Cancellation rate per weekday, returned Mon→Sun.
 export async function getCancellationRateByWeekday({
-  clinicId,
+  scope,
   startDate,
   endDate,
 }: KpiParams) {
   const appts = await prisma.appointment.findMany({
-    where: { clinicId, appointmentDate: { gte: startDate, lte: endDate } },
+    where: {
+      clinicId: scope.clinicId,
+      ...(scope.doctorId ? { doctorId: scope.doctorId } : {}),
+      appointmentDate: { gte: startDate, lte: endDate },
+    },
     select: { appointmentDate: true, status: true },
   });
 
-  // getDay(): 0=Sun … 6=Sat. We tally per index then emit in Mon-first order.
   const totals = new Array(7).fill(0) as number[];
   const cancels = new Array(7).fill(0) as number[];
   for (const a of appts) {
@@ -97,7 +99,6 @@ export async function getCancellationRateByWeekday({
     if (a.status === AppointmentStatus.CANCELLED) cancels[d] += 1;
   }
 
-  // Output order Mon(1)…Sat(6) then Sun(0).
   const order: { idx: number; day: string }[] = [
     { idx: 1, day: "Mon" },
     { idx: 2, day: "Tue" },
@@ -116,15 +117,15 @@ export async function getCancellationRateByWeekday({
 }
 
 // ── Function 4 ────────────────────────────────────────────────────────────
-// Average appointment duration per doctor, COMPLETED only.
 export async function getAvgDurationByDoctor({
-  clinicId,
+  scope,
   startDate,
   endDate,
 }: KpiParams) {
   const appts = await prisma.appointment.findMany({
     where: {
-      clinicId,
+      clinicId: scope.clinicId,
+      ...(scope.doctorId ? { doctorId: scope.doctorId } : {}),
       appointmentDate: { gte: startDate, lte: endDate },
       status: AppointmentStatus.COMPLETED,
     },
@@ -149,15 +150,15 @@ export async function getAvgDurationByDoctor({
 }
 
 // ── Function 5 ────────────────────────────────────────────────────────────
-// Unbilled COMPLETED visits per doctor (billedCptCode null) + est. revenue lost.
 export async function getUnbilledVisitsByDoctor({
-  clinicId,
+  scope,
   startDate,
   endDate,
 }: KpiParams) {
   const appts = await prisma.appointment.findMany({
     where: {
-      clinicId,
+      clinicId: scope.clinicId,
+      ...(scope.doctorId ? { doctorId: scope.doctorId } : {}),
       appointmentDate: { gte: startDate, lte: endDate },
       status: AppointmentStatus.COMPLETED,
       billedCptCode: null,
@@ -180,14 +181,17 @@ export async function getUnbilledVisitsByDoctor({
 }
 
 // ── Function 6 ────────────────────────────────────────────────────────────
-// One summary object for the hero + metric cards.
 export async function getDashboardSummary({
-  clinicId,
+  scope,
   startDate,
   endDate,
 }: KpiParams) {
   const appts = await prisma.appointment.findMany({
-    where: { clinicId, appointmentDate: { gte: startDate, lte: endDate } },
+    where: {
+      clinicId: scope.clinicId,
+      ...(scope.doctorId ? { doctorId: scope.doctorId } : {}),
+      appointmentDate: { gte: startDate, lte: endDate },
+    },
     select: { status: true, billedAmount: true, billedCptCode: true },
   });
 

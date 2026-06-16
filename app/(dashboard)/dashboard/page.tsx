@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { subDays } from "date-fns";
 import { auth } from "@/auth";
+import { getScope } from "@/lib/queries/scope";
 import {
   getNoShowRateByDoctor,
   getRevenueByAppointmentType,
@@ -11,10 +12,12 @@ import {
   getDashboardSummary,
 } from "@/lib/queries/kpi";
 import { countRedOverduePatients } from "@/lib/queries/patients";
+import { getLeakageReport } from "@/lib/queries/revenue";
 import MetricCard from "@/components/ui-kit/MetricCard";
 import SectionLabel from "@/components/ui-kit/SectionLabel";
 import LayeredCard from "@/components/ui-kit/LayeredCard";
 import CountUp from "@/components/ui-kit/CountUp";
+import DrawBorder from "@/components/ui-kit/DrawBorder";
 import NoShowRateChart from "@/components/charts/NoShowRateChart";
 import RevenueByTypeChart from "@/components/charts/RevenueByTypeChart";
 import CancellationChart from "@/components/charts/CancellationChart";
@@ -31,12 +34,16 @@ export default async function DashboardPage({
 }) {
   const session = await auth();
   if (!session) redirect("/login");
-  const { clinicId } = session.user;
+
+  const scope = getScope(session);
+  const { clinicId } = session.user; // Kept for queries not yet migrated to scope
 
   const sp = await searchParams;
   const endDate = sp.end ? new Date(sp.end) : new Date();
   const startDate = sp.start ? new Date(sp.start) : subDays(new Date(), 90);
-  const params = { clinicId, startDate, endDate };
+
+  // Use `scope` instead of `clinicId` for updated KPI queries
+  const params = { scope, startDate, endDate };
 
   const [
     noShow,
@@ -46,6 +53,7 @@ export default async function DashboardPage({
     unbilled,
     summary,
     redOverdue,
+    leakage,
   ] = await Promise.all([
     getNoShowRateByDoctor(params),
     getRevenueByAppointmentType(params),
@@ -53,7 +61,8 @@ export default async function DashboardPage({
     getAvgDurationByDoctor(params),
     getUnbilledVisitsByDoctor(params),
     getDashboardSummary(params),
-    countRedOverduePatients(clinicId),
+    countRedOverduePatients(scope), // Updated to use scope
+    getLeakageReport(clinicId, subDays(new Date(), 30), new Date()),
   ]);
 
   const worstDoctor = noShow[0];
@@ -150,6 +159,23 @@ export default async function DashboardPage({
           Apply
         </button>
       </form>
+
+      {/* Revenue leakage card — full width, above metric grid. */}
+      <DrawBorder>
+        <LayeredCard className="p-6 border-l-4 border-l-danger">
+          <SectionLabel
+            eyebrow="REVENUE LEAKAGE"
+            title="Potential monthly loss"
+            level={3}
+          />
+          <p className="mt-2 font-display text-[36px] font-bold leading-none tracking-tight text-danger">
+            ₹{leakage.summary.totalLeakage.toLocaleString("en-IN")}
+          </p>
+          <p className="mt-1.5 text-[13px] text-ink-3">
+            from {leakage.summary.undercodeCount} undercoded visits this month
+          </p>
+        </LayeredCard>
+      </DrawBorder>
 
       {/* Metric cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">

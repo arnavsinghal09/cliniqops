@@ -1,5 +1,6 @@
 import prisma from "@/lib/prisma";
 import { Prisma } from "@/lib/generated/prisma/client";
+import type { Scope } from "@/lib/queries/scope";
 
 const CHRONIC_PREFIXES = ["E11", "I10", "J45", "E78"] as const;
 
@@ -47,13 +48,16 @@ function decorate(p: {
   return { ...p, daysSinceLastVisit, hasChronicCondition, overdueStatus };
 }
 
-// Internal: fetch + decorate + apply computed-field filters. Returns the FULL
-// filtered set (no pagination) — callers either page it or count it.
+// Internal: fetch + decorate + apply computed-field filters.
 async function fetchFiltered(
-  clinicId: string,
+  scope: Scope,
   filters: PatientFilters,
 ): Promise<OverduePatient[]> {
-  const where: Prisma.PatientWhereInput = { clinicId };
+  const where: Prisma.PatientWhereInput = {
+    clinicId: scope.clinicId,
+    ...(scope.doctorId ? { doctorId: scope.doctorId } : {}),
+  };
+
   if (filters.search && filters.search.trim()) {
     where.name = { contains: filters.search.trim(), mode: "insensitive" };
   }
@@ -79,22 +83,19 @@ async function fetchFiltered(
   return result;
 }
 
-// Back-compat: the unpaginated list (still used by the dashboard count path).
+// Back-compat: the unpaginated list.
 export async function getOverduePatients(
-  clinicId: string,
+  scope: Scope,
   filters: PatientFilters,
 ): Promise<OverduePatient[]> {
-  return fetchFiltered(clinicId, filters);
+  return fetchFiltered(scope, filters);
 }
 
 /**
- * Paginated roster. Status/condition filters depend on computed fields, so we
- * filter the full set in JS first, then slice the page. `total` is the filtered
- * count (for page math), and we also return the unfiltered-by-page summary
- * counts so the pills reflect the WHOLE filtered set, not just the visible page.
+ * Paginated roster.
  */
 export async function getOverduePatientsPage(
-  clinicId: string,
+  scope: Scope,
   filters: PatientFilters,
   page: number,
   pageSize: number,
@@ -103,7 +104,7 @@ export async function getOverduePatientsPage(
   total: number;
   summary: { red: number; amber: number; never: number };
 }> {
-  const all = await fetchFiltered(clinicId, filters);
+  const all = await fetchFiltered(scope, filters);
 
   const summary = {
     red: all.filter((p) => p.overdueStatus === "RED").length,
@@ -117,9 +118,13 @@ export async function getOverduePatientsPage(
   return { rows, total: all.length, summary };
 }
 
-export async function getPatientHistory(patientId: string, clinicId: string) {
+export async function getPatientHistory(patientId: string, scope: Scope) {
   const patient = await prisma.patient.findFirst({
-    where: { id: patientId, clinicId },
+    where: {
+      id: patientId,
+      clinicId: scope.clinicId,
+      ...(scope.doctorId ? { doctorId: scope.doctorId } : {}),
+    },
     include: {
       appointments: {
         include: { doctor: true },
@@ -131,18 +136,19 @@ export async function getPatientHistory(patientId: string, clinicId: string) {
   return patient;
 }
 
-// Read logged follow-ups for a patient (newest first) so the drawer can show
-// them. Clinic-scoped so a patient from another clinic can't be read.
-export async function getFollowUps(patientId: string, clinicId: string) {
+// Read logged follow-ups for a patient
+export async function getFollowUps(patientId: string, scope: Scope) {
   return prisma.followUpAction.findMany({
-    where: { patientId, clinicId },
+    where: {
+      patientId,
+      clinicId: scope.clinicId,
+      ...(scope.doctorId ? { doctorId: scope.doctorId } : {}),
+    },
     orderBy: { actionDate: "desc" },
   });
 }
 
-export async function countRedOverduePatients(
-  clinicId: string,
-): Promise<number> {
-  const all = await fetchFiltered(clinicId, {});
+export async function countRedOverduePatients(scope: Scope): Promise<number> {
+  const all = await fetchFiltered(scope, {});
   return all.filter((p) => p.overdueStatus === "RED").length;
 }
