@@ -7,28 +7,91 @@ datasource db {
   provider = "postgresql"
 }
 
-model Clinic {
-  id               String        @id @default(cuid())
-  name             String
-  slug             String        @unique
-  addressLine      String?
-  city             String?
-  phone            String?
-  timezone         String        @default("Asia/Kolkata")
-  workingHoursJson String?
-  createdAt        DateTime      @default(now())
-  updatedAt        DateTime      @default(now()) @updatedAt
-  users            User[]
-  appointments     Appointment[]
-  patients         Patient[]
-  alerts           Alert[]
-  invitations      Invitation[]
-  auditLogs        AuditLog[]
+// ENUMS
+
+enum Role {
+  ADMIN
+  DOCTOR
+  BILLING
 }
 
 enum UserStatus {
   ACTIVE
   SUSPENDED
+}
+
+enum AppointmentStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+enum AlertSeverity {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum RoomStatus {
+  WAITING
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum ScribeStatus {
+  DRAFT
+  PROCESSED
+}
+
+
+// CLINIC & USERS
+
+model Clinic {
+  id                String             @id @default(cuid())
+  name              String
+  slug              String             @unique
+  addressLine       String?
+  city              String?
+  phone             String?
+  timezone          String             @default("Asia/Kolkata")
+  workingHoursJson  String?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @default(now()) @updatedAt
+  users             User[]
+  appointments      Appointment[]
+  patients          Patient[]
+  alerts            Alert[]
+  invitations       Invitation[]
+  auditLogs         AuditLog[]
+  consultationRooms ConsultationRoom[]
+}
+
+model User {
+  id                String             @id @default(cuid())
+  email             String
+  passwordHash      String
+  name              String?
+  title             String?
+  phone             String?
+  avatarUrl         String?
+  role              Role               @default(DOCTOR)
+  status            UserStatus         @default(ACTIVE)
+  mustResetPassword Boolean            @default(false)
+  clinicId          String
+  clinic            Clinic             @relation(fields: [clinicId], references: [id])
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @default(now()) @updatedAt
+  appointments      Appointment[]
+  accounts          Account[]
+  sessions          Session[]
+  auditLogs         AuditLog[]         @relation("AuditActor")
+  consultationRooms ConsultationRoom[] @relation("DoctorRooms")
+  scribeSessions    ScribeSession[]    @relation("DoctorScribes")
+
+  @@unique([email, clinicId])
+  @@index([clinicId])
 }
 
 model Invitation {
@@ -48,34 +111,24 @@ model Invitation {
   @@index([clinicId])
 }
 
-model User {
-  id                String        @id @default(cuid())
-  email             String
-  passwordHash      String
-  name              String?
-  title             String?
-  phone             String?
-  avatarUrl         String?
-  role              Role          @default(DOCTOR)
-  status            UserStatus    @default(ACTIVE)
-  mustResetPassword Boolean       @default(false)
+
+// PATIENTS, APPOINTMENTS, FOLLOW-UPS
+
+model Patient {
+  id                String             @id @default(cuid())
   clinicId          String
-  clinic            Clinic        @relation(fields: [clinicId], references: [id])
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @default(now()) @updatedAt
+  clinic            Clinic             @relation(fields: [clinicId], references: [id])
+  name              String
+  dateOfBirth       DateTime?
+  icd10Codes        String[]
+  lastVisitDate     DateTime?
+  createdAt         DateTime           @default(now())
   appointments      Appointment[]
-  accounts          Account[]
-  sessions          Session[]
-  auditLogs         AuditLog[]    @relation("AuditActor")
+  followUpActions   FollowUpAction[]
+  consultationRooms ConsultationRoom[]
+  scribeSessions    ScribeSession[]
 
-  @@unique([email, clinicId])
   @@index([clinicId])
-}
-
-enum Role {
-  ADMIN
-  DOCTOR
-  BILLING
 }
 
 model Appointment {
@@ -93,38 +146,28 @@ model Appointment {
   billedCptCode   String?
   billedAmount    Decimal?
   createdAt       DateTime          @default(now())
+
   @@unique([clinicId, patientId, appointmentDate, doctorId])
   @@index([clinicId])
   @@index([doctorId])
   @@index([patientId])
 }
 
-enum AppointmentStatus {
-  SCHEDULED
-  COMPLETED
-  CANCELLED
-  NO_SHOW
-}
-
-model Patient {
-  id              String           @id @default(cuid())
+model FollowUpAction {
+  id              String   @id @default(cuid())
+  patientId       String
+  patient         Patient  @relation(fields: [patientId], references: [id])
   clinicId        String
-  clinic          Clinic           @relation(fields: [clinicId], references: [id])
-  name            String
-  dateOfBirth     DateTime?
-  icd10Codes      String[]
-  lastVisitDate   DateTime?
-  createdAt       DateTime         @default(now())
-  appointments    Appointment[]
-  followUpActions FollowUpAction[]
+  notes           String
+  actionDate      DateTime @default(now())
+  createdByUserId String
+
   @@index([clinicId])
+  @@index([patientId])
 }
 
-enum AlertSeverity {
-  LOW
-  MEDIUM
-  HIGH
-}
+
+// ALERTS & AUDIT
 
 model Alert {
   id               String        @id @default(cuid())
@@ -144,19 +187,6 @@ model Alert {
   @@index([clinicId])
 }
 
-model FollowUpAction {
-  id              String   @id @default(cuid())
-  patientId       String
-  patient         Patient  @relation(fields: [patientId], references: [id])
-  clinicId        String
-  notes           String
-  actionDate      DateTime @default(now())
-  createdByUserId String
-  @@index([clinicId])
-  @@index([patientId])
-}
-
-
 model AuditLog {
   id         String   @id @default(cuid())
   clinicId   String
@@ -173,40 +203,79 @@ model AuditLog {
   @@index([createdAt])
 }
 
-model ScribeSession {
-  id            String        @id @default(cuid())
-  clinicId      String
-  doctorId      String
-  patientId     String?
-  appointmentId String?
-  rawTranscript String
-  status        ScribeStatus  @default(DRAFT)
-  createdAt     DateTime      @default(now())
-  soapNote      SoapNote?
+
+// CONSULTATION / SCRIBE / SOAP
+
+
+model ConsultationRoom {
+  id             String         @id @default(cuid())
+  clinicId       String
+  clinic         Clinic         @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  doctorId       String
+  doctor         User           @relation("DoctorRooms", fields: [doctorId], references: [id])
+  patientId      String?
+  patient        Patient?       @relation(fields: [patientId], references: [id])
+  patientName    String
+  patientEmail   String?
+  patientPhone   String?
+  roomToken      String         @unique @default(cuid())
+  status         RoomStatus     @default(WAITING)
+  scheduledAt    DateTime?
+  startedAt      DateTime?
+  endedAt        DateTime?
+  reportViewedAt DateTime?
+  createdAt      DateTime       @default(now())
+  scribeSession  ScribeSession?
+
   @@index([clinicId])
+  @@index([doctorId])
+  @@index([roomToken])
 }
 
-enum ScribeStatus {
-  DRAFT
-  PROCESSED
+model ScribeSession {
+  id                 String            @id @default(cuid())
+  clinicId           String
+  doctorId           String
+  doctor             User              @relation("DoctorScribes", fields: [doctorId], references: [id])
+  patientId          String?
+  patient            Patient?          @relation(fields: [patientId], references: [id])
+  consultationRoomId String?           @unique
+  consultationRoom   ConsultationRoom? @relation(fields: [consultationRoomId], references: [id])
+  rawTranscript      String            @db.Text
+  status             ScribeStatus      @default(DRAFT)
+  createdAt          DateTime          @default(now())
+  soapNote           SoapNote?
+
+  @@index([clinicId])
+  @@index([doctorId])
 }
 
 model SoapNote {
-  id                String         @id @default(cuid())
-  scribeSessionId   String         @unique
-  scribeSession     ScribeSession  @relation(fields: [scribeSessionId], references: [id])
-  clinicId          String
-  subjective        String
-  objective         String
-  assessment        String
-  plan              String
-  icd10Codes        String[]
-  suggestedCptCode  String
-  cptRationale      String
-  editedAt          DateTime?
-  approvedAt        DateTime?
-  approvedByUserId  String?
+  id                  String        @id @default(cuid())
+  scribeSessionId     String        @unique
+  scribeSession       ScribeSession @relation(fields: [scribeSessionId], references: [id], onDelete: Cascade)
+  clinicId            String
+  subjective          String        @db.Text
+  objective           String        @db.Text
+  assessment          String        @db.Text
+  plan                String        @db.Text
+  icd10Codes          String[]
+  suggestedCptCode    String
+  cptRationale        String
+  patientInstructions String        @db.Text
+  followUpDate        DateTime?
+  prescriptions       String[]
+  editedAt            DateTime?
+  approvedAt          DateTime?
+  approvedByUserId    String?
+  createdAt           DateTime      @default(now())
+
+  @@index([clinicId])
 }
+
+
+// AUTH (NextAuth)
+
 
 model Account {
   id                String  @id @default(cuid())
@@ -222,6 +291,7 @@ model Account {
   id_token          String?
   session_state     String?
   user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@unique([provider, providerAccountId])
 }
 
@@ -237,5 +307,6 @@ model VerificationToken {
   identifier String
   token      String   @unique
   expires    DateTime
+
   @@unique([identifier, token])
 }

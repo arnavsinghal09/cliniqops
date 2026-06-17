@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useTransition, type CSSProperties } from "react";
+import VoiceInput from "./VoiceInput";
 import {
   ResponsiveContainer,
   BarChart,
@@ -269,7 +270,19 @@ export default function NLQueryInterface() {
 
   const ask = (q: string): void => {
     startTransition(() => {
-      void runNlQuery(q).then(setResult);
+      void runNlQuery(q).then((res) => {
+        setResult(res);
+        if (!res.error && res.rows.length > 0) {
+          const vm = buildView(res);
+          const spoken =
+            vm?.kind === "hero"
+              ? `${vm.valueKey.replace(/_/g, " ")} is ${fmtNumber(vm.valueKey, vm.value)}.`
+              : vm?.kind === "bar" || vm?.kind === "line"
+                ? `Here's a ${vm.kind} chart with ${res.rows.length} ${res.rows.length === 1 ? "point" : "points"}.`
+                : `I found ${res.rows.length} ${res.rows.length === 1 ? "result" : "results"}.`;
+          speak(spoken);
+        }
+      });
     });
   };
   const submit = (): void => {
@@ -311,6 +324,12 @@ export default function NLQueryInterface() {
     a.click();
     URL.revokeObjectURL(url);
     toast.success("Exported CSV");
+  };
+
+  const speak = (text: string): void => {
+    if (typeof window === "undefined" || !window.speechSynthesis) return;
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(new SpeechSynthesisUtterance(text));
   };
 
   const status: "idle" | "error" | "empty" | "data" = !result
@@ -415,6 +434,13 @@ export default function NLQueryInterface() {
             + Enter to run
           </span>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <VoiceInput
+              onTranscript={setText}
+              onComplete={(t) => {
+                setText(t);
+                ask(t);
+              }}
+            />
             {result && (
               <button
                 type="button"
@@ -592,8 +618,8 @@ export default function NLQueryInterface() {
                   No rows matched this question.
                 </p>
                 <p style={{ fontSize: 12.5, margin: 0 }}>
-                  The query ran fine — there&apos;s just no data that fits. Open the
-                  SQL below to check the logic.
+                  The query ran fine — there&apos;s just no data that fits. Open
+                  the SQL below to check the logic.
                 </p>
               </div>
             </Card>

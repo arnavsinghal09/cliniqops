@@ -6,7 +6,13 @@ import { canAccess, type Role } from "@/lib/permissions";
 const { auth } = NextAuth(authConfig);
 
 const PUBLIC_EXACT = ["/"];
-const PUBLIC_PREFIXES = ["/api/auth", "/api/cron", "/api/revenue"];
+const PUBLIC_PREFIXES = [
+  "/api/auth",
+  "/api/cron",
+  "/api/revenue",
+  "/api/consultation",
+  "/consultation",
+];
 const AUTH_PAGES = ["/login"];
 // Reachable by any signed-in user regardless of role:
 const ROLE_EXEMPT = ["/unauthorized"];
@@ -51,5 +57,7 @@ export default auth((req) => {
 });
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  matcher: [
+    "/((?!_next/static|_next/image|_next/webpack-hmr|favicon.ico|.*\\.(?:js|css|map|png|jpg|jpeg|svg|ico|woff|woff2)).*)",
+  ],
 };

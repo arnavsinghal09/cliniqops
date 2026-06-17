@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import prisma  from "@/lib/prisma";
 import Sidebar from "@/components/sidebar";
 import TopBar from "@/components/topbar";
+import AlertToastListener from "@/components/AlertToastListener";
 
 export default async function DashboardLayout({
   children,
@@ -19,17 +20,20 @@ export default async function DashboardLayout({
   });
 
   return (
-    <div className="flex h-screen bg-bg">
-      <Sidebar
-        name={user.name ?? null}
-        email={user.email}
-        role={user.role}
-        unreadCount={unreadCount}
-      />
-      <div className="flex flex-1 flex-col overflow-hidden pl-60">
-        <TopBar clinicName={user.clinicName ?? "Clinic"} />
-        <main className="flex-1 overflow-y-auto p-6">{children}</main>
+    <>
+      <AlertToastListener clinicId={session.user.clinicId} />
+      <div className="flex h-screen bg-bg">
+        <Sidebar
+          name={user.name ?? null}
+          email={user.email}
+          role={user.role}
+          unreadCount={unreadCount}
+        />
+        <div className="flex flex-1 flex-col overflow-hidden pl-60">
+          <TopBar clinicName={user.clinicName ?? "Clinic"} />
+          <main className="flex-1 overflow-y-auto p-6">{children}</main>
+        </div>
       </div>
-    </div>
+    </>
   );
 }

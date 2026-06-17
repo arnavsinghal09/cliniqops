@@ -3,6 +3,7 @@ import type { NextAuthConfig } from "next-auth";
 export default {
   pages: { signIn: "/login" },
   session: { strategy: "jwt" },
+  trustHost:true,
   providers: [], // real provider lives in auth.ts (needs Node APIs)
   callbacks: {
     async jwt({ token, user }) {
