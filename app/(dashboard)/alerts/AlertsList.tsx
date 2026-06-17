@@ -15,6 +15,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import Link from "next/link";
 
 export type AlertRow = {
   id: string;
@@ -65,6 +66,21 @@ const METRIC_TIP: Record<string, string> = {
   unbilledCount:
     "Cross-check completed visits missing a CPT code in the billing queue and clear the backlog.",
 };
+
+function investigateQuery(metric: string): string {
+  switch (metric) {
+    case "noShowRate":
+      return "Show me no-show appointments this week by doctor";
+    case "cancellationRate":
+      return "Show me cancellations this week by day of week";
+    case "totalRevenue":
+      return "What is our total revenue this week by doctor?";
+    case "unbilledCount":
+      return "Which appointment types are most commonly unbilled?";
+    default:
+      return `Show me ${metric} this week`;
+  }
+}
 
 function sevOf(s: string) {
   return SEV[s as keyof typeof SEV] ?? SEV.LOW;
@@ -523,6 +539,24 @@ function DetailBody({ alert }: { alert: AlertRow }) {
       </Section>
 
       <Section label="Suggested next step">{tip}</Section>
+      <Link
+        href={`/query?prefill=${encodeURIComponent(investigateQuery(alert.metric))}`}
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 6,
+          background: "#72554D",
+          color: "#FBFAF7",
+          borderRadius: 6,
+          padding: "9px 16px",
+          fontSize: 13,
+          fontWeight: 600,
+          textDecoration: "none",
+          marginTop: 12,
+        }}
+      >
+        Investigate this →
+      </Link>
 
       <p style={{ fontSize: 12, color: C.ink3, margin: "8px 0 0" }}>
         Week of {format(new Date(alert.weekOf), "dd MMM yyyy")}

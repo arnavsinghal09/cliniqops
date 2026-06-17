@@ -49,8 +49,8 @@ const NAV_ITEMS = [
   },
   { label: "Alerts", href: "/alerts", icon: Bell, roles: ["ADMIN", "DOCTOR"] },
   {
-    label: "Voice Scribe",
-    href: "/scribe",
+    label: "Consultations",
+    href: "/consultations",
     icon: Mic,
     roles: ["ADMIN", "DOCTOR"],
   },

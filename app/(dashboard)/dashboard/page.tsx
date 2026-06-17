@@ -24,8 +24,10 @@ import CancellationChart from "@/components/charts/CancellationChart";
 import AvgDurationChart from "@/components/charts/AvgDurationChart";
 import UnbilledVisitsChart from "@/components/charts/UnbilledVisitsChart";
 import { TrendingUp, UserX, AlertCircle, Calendar } from "lucide-react";
+import EmptyState from "./EmptyState";
+import prisma from "@/lib/prisma";
 
-type SearchParams = Promise<{ start?: string; end?: string }>;
+type SearchParams = Promise<{ start?: string; end?: string; fresh?: string }>;
 
 export default async function DashboardPage({
   searchParams,
@@ -34,11 +36,19 @@ export default async function DashboardPage({
 }) {
   const session = await auth();
   if (!session) redirect("/login");
-
+  
+  const appointmentCount = await prisma.appointment.count({
+    where: { clinicId: session.user.clinicId },
+  });
+  if (appointmentCount === 0) {
+    return <EmptyState />;
+  }
+  
   const scope = getScope(session);
-  const { clinicId } = session.user; // Kept for queries not yet migrated to scope
+  const { clinicId } = session.user;
 
   const sp = await searchParams;
+  const isFresh = sp.fresh === "true";
   const endDate = sp.end ? new Date(sp.end) : new Date();
   const startDate = sp.start ? new Date(sp.start) : subDays(new Date(), 90);
 
@@ -79,6 +89,37 @@ export default async function DashboardPage({
 
   return (
     <div className="space-y-6">
+      {isFresh && (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            background: "#ECF0EA",
+            border: "1px solid #4E6B4F",
+            borderRadius: 6,
+            padding: "14px 18px",
+            marginBottom: 20,
+          }}
+        >
+          <span style={{ fontSize: 20 }}>✓</span>
+          <div>
+            <p
+              style={{
+                fontSize: 14.5,
+                fontWeight: 600,
+                color: "#1A1714",
+                margin: 0,
+              }}
+            >
+              Data loaded — here&apos;s your clinic at a glance
+            </p>
+            <p style={{ fontSize: 13, color: "#4A453F", margin: "2px 0 0" }}>
+              Your appointments, revenue, and alerts are now live below.
+            </p>
+          </div>
+        </div>
+      )}
       {/* Hero banner */}
       <div className="relative flex items-center justify-between overflow-hidden rounded-md border border-brand-dk bg-brand p-8">
         <span aria-hidden className="grain-tex opacity-[0.07]" />

@@ -8,10 +8,10 @@ export const PERMISSIONS: Record<Role, string[]> = {
     "/query",
     "/revenue",
     "/alerts",
-    "/scribe",
+    "/consultations",
     "/settings",
   ],
-  DOCTOR: ["/dashboard", "/patients", "/query", "/scribe", "/alerts"],
+  DOCTOR: ["/dashboard", "/patients", "/query", "/consultations", "/alerts"],
   BILLING: ["/dashboard", "/revenue", "/alerts", "/upload"],
 };
 

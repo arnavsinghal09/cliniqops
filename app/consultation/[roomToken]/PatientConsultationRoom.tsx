@@ -37,7 +37,7 @@ export default function PatientConsultationRoom({
   roomToken,
   patientName,
   doctorName,
-  clinicName,
+  // clinicName,
   initialStatus,
 }: {
   roomToken: string;
@@ -49,6 +49,8 @@ export default function PatientConsultationRoom({
   const [callStatus, setCallStatus] = useState<CallStatus>(
     initialStatus === "COMPLETED" ? "ended" : "waiting",
   );
+
+  const [reportReady, setReportReady] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOff, setIsVideoOff] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -62,70 +64,6 @@ export default function PatientConsultationRoom({
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const channelRef = useRef<RealtimeChannel | null>(null);
   const joinedRef = useRef(false);
-
-  // Poll room status while waiting; when ACTIVE, join.
-  useEffect(() => {
-    if (callStatus !== "waiting") return;
-    console.log("[PT] polling started for room:", roomToken);
-    const interval = setInterval(async () => {
-      try {
-        const res = await fetch(`/api/consultation/${roomToken}`);
-        const data = await res.json();
-        console.log("[PT] poll — room status:", data.status);
-        if (data.status === "ACTIVE" && !joinedRef.current) {
-          joinedRef.current = true;
-          clearInterval(interval);
-          console.log("[PT] room ACTIVE → joining call");
-          void joinCall();
-        }
-        if (data.status === "COMPLETED") {
-          clearInterval(interval);
-          setCallStatus("ended");
-        }
-      } catch (e) {
-        console.log("[PT] poll error:", e);
-      }
-    }, 5000);
-    return () => clearInterval(interval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [callStatus, roomToken]);
-
-  useEffect(() => {
-    if (remoteVideoRef.current && remoteStream) {
-      remoteVideoRef.current.srcObject = remoteStream;
-    }
-  }, [remoteStream, callStatus]);
-
-  useEffect(() => {
-    if (localVideoRef.current && localStreamRef.current) {
-      localVideoRef.current.srcObject = localStreamRef.current;
-    }
-  }, [callStatus]);
-
-  useEffect(() => {
-    return () => {
-      pcRef.current?.close();
-      localStreamRef.current?.getTracks().forEach((t) => t.stop());
-      channelRef.current?.unsubscribe();
-    };
-  }, []);
-
-  async function checkConnection() {
-    setError(null);
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: true,
-        audio: true,
-      });
-      localStreamRef.current = stream;
-      setPreviewOn(true);
-      if (previewVideoRef.current) previewVideoRef.current.srcObject = stream;
-    } catch {
-      setError(
-        "We couldn't access your camera or microphone. Please allow permissions and try again.",
-      );
-    }
-  }
 
   async function joinCall() {
     console.log("[PT] joinCall start");
@@ -240,6 +178,92 @@ export default function PatientConsultationRoom({
       }
     });
   }
+
+  // Poll room status while waiting; when ACTIVE, join.
+  useEffect(() => {
+    if (callStatus !== "waiting") return;
+    console.log("[PT] polling started for room:", roomToken);
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/consultation/${roomToken}`);
+        const data = await res.json();
+        console.log("[PT] poll — room status:", data.status);
+        if (data.status === "ACTIVE" && !joinedRef.current) {
+          joinedRef.current = true;
+          clearInterval(interval);
+          console.log("[PT] room ACTIVE → joining call");
+          void joinCall();
+        }
+        if (data.status === "COMPLETED") {
+          clearInterval(interval);
+          setCallStatus("ended");
+        }
+      } catch (e) {
+        console.log("[PT] poll error:", e);
+      }
+    }, 5000);
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [callStatus, roomToken]);
+
+  useEffect(() => {
+    if (callStatus !== "ended") return;
+    let active = true;
+    const check = async () => {
+      try {
+        const res = await fetch(`/api/consultation/${roomToken}`);
+        const data = await res.json();
+        if (active) setReportReady(!!data.hasSoapNote);
+      } catch {
+        /* ignore */
+      }
+    };
+    check();
+    const id = setInterval(check, 15000); // re-check every 15s while on this screen
+    return () => {
+      active = false;
+      clearInterval(id);
+    };
+  }, [callStatus, roomToken]);
+
+  useEffect(() => {
+    if (remoteVideoRef.current && remoteStream) {
+      remoteVideoRef.current.srcObject = remoteStream;
+    }
+  }, [remoteStream, callStatus]);
+
+  useEffect(() => {
+    if (localVideoRef.current && localStreamRef.current) {
+      localVideoRef.current.srcObject = localStreamRef.current;
+    }
+  }, [callStatus]);
+
+  useEffect(() => {
+    return () => {
+      pcRef.current?.close();
+      localStreamRef.current?.getTracks().forEach((t) => t.stop());
+      channelRef.current?.unsubscribe();
+    };
+  }, []);
+
+  async function checkConnection() {
+    setError(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: true,
+        audio: true,
+      });
+      localStreamRef.current = stream;
+      setPreviewOn(true);
+      if (previewVideoRef.current) previewVideoRef.current.srcObject = stream;
+    } catch {
+      setError(
+        "We couldn't access your camera or microphone. Please allow permissions and try again.",
+      );
+    }
+  }
+
+  
   function toggleMute() {
     const track = localStreamRef.current?.getAudioTracks()[0];
     if (!track) return;
@@ -460,24 +484,64 @@ export default function PatientConsultationRoom({
               lineHeight: 1.55,
             }}
           >
-            Thank you for your consultation with {doctorName}. Your doctor is
-            preparing your visit summary — you&apos;ll see it here shortly.
+            Thank you for your consultation with {doctorName}.
+            {reportReady
+              ? " Your visit summary is ready below."
+              : " Your doctor is preparing your visit summary — check back shortly."}
           </p>
-          <Link
-            href={`/consultation/${roomToken}/report`}
-            style={{
-              display: "inline-block",
-              background: C.accent,
-              color: C.surface,
-              borderRadius: 6,
-              padding: "10px 18px",
-              fontSize: 14,
-              fontWeight: 600,
-              textDecoration: "none",
-            }}
-          >
-            View your visit summary
-          </Link>
+
+          {reportReady ? (
+            <Link
+              href={`/consultation/${roomToken}/report`}
+              style={{
+                display: "inline-block",
+                background: C.accent,
+                color: C.surface,
+                borderRadius: 6,
+                padding: "10px 18px",
+                fontSize: 14,
+                fontWeight: 600,
+                textDecoration: "none",
+              }}
+            >
+              View your visit summary
+            </Link>
+          ) : (
+            <span
+              style={{
+                display: "inline-block",
+                background: C.bg,
+                color: C.ink3,
+                borderRadius: 6,
+                padding: "10px 18px",
+                fontSize: 14,
+                fontWeight: 600,
+              }}
+            >
+              Summary being prepared…
+            </span>
+          )}
+
+          {/* Dropped-call recovery: allow rejoining if the doctor restarts. */}
+          <div style={{ marginTop: 16 }}>
+            <button
+              type="button"
+              onClick={() => {
+                joinedRef.current = false;
+                setCallStatus("waiting");
+              }}
+              style={{
+                background: "transparent",
+                border: "none",
+                color: C.ink3,
+                fontSize: 12.5,
+                cursor: "pointer",
+                textDecoration: "underline",
+              }}
+            >
+              Call dropped? Return to waiting room
+            </button>
+          </div>
         </div>
       </div>
     );

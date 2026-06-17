@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { format } from "date-fns";
+import { getScope } from "@/lib/queries/scope";
 import { auth } from "@/auth";
 import { getOverduePatientsPage } from "@/lib/queries/patients";
 import SectionLabel from "@/components/ui-kit/SectionLabel";
@@ -15,6 +16,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import Link from "next/link";
 
 type SearchParams = Promise<{
   condition?: string;
@@ -47,8 +49,9 @@ export default async function PatientsPage({
     search: sp.search,
   };
 
+  const scope = getScope(session);
   const { rows, total, summary } = await getOverduePatientsPage(
-    session.user.clinicId,
+    scope,
     filters,
     page,
     PAGE_SIZE,
@@ -131,7 +134,15 @@ export default async function PatientsPage({
                   </span>
                 </TableCell>
                 <TableCell className="text-right">
-                  <PatientDrawer patientId={p.id} patientName={p.name} />
+                  <div className="flex items-center justify-end gap-2">
+                    <Link
+                      href={`/consultations?newPatient=${encodeURIComponent(p.name)}&newPatientId=${p.id}`}
+                      className="inline-flex items-center gap-1.5 rounded-ctrl border border-border-2 bg-surface px-3 py-1.5 text-xs font-semibold text-brand-dk transition-colors hover:bg-brand-muted"
+                    >
+                      Start consultation
+                    </Link>
+                    <PatientDrawer patientId={p.id} patientName={p.name} />
+                  </div>
                 </TableCell>
               </TableRow>
             ))}

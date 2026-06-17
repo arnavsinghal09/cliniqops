@@ -7,8 +7,8 @@ import type {
   RoomSummary,
   PatientOption,
   RoomStatus,
-} from "./ScribePageClient";
-
+} from "./ConsultationsClient";
+import { useSearchParams } from "next/navigation";
 const C = {
   surface: "#FBFAF7",
   bg: "#F4F1EB",
@@ -72,8 +72,11 @@ export default function RoomManagementPanel({
   patients: PatientOption[];
   onJoinRoom: (roomId: string) => void;
 }) {
+  const searchParams = useSearchParams();
+  const prefillName = searchParams.get("newPatient") ?? "";
+  const prefillId = searchParams.get("newPatientId") ?? "";
   const [pending, start] = useTransition();
-  const [useExisting, setUseExisting] = useState(false);
+  const [useExisting, setUseExisting] = useState(!!prefillId);
   const [createdLink, setCreatedLink] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -181,6 +184,7 @@ export default function RoomManagementPanel({
               name="patientName"
               required
               placeholder="Riya Patel"
+              defaultValue={prefillName}
               style={inputStyle}
             />
           </div>
@@ -219,7 +223,7 @@ export default function RoomManagementPanel({
               <select
                 name="existingPatientId"
                 style={inputStyle}
-                defaultValue=""
+                defaultValue={prefillId || ""}
               >
                 <option value="" disabled>
                   Select a patient…

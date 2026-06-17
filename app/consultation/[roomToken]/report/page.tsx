@@ -1,5 +1,6 @@
 import { format } from "date-fns";
 import prisma from "@/lib/prisma";
+import FollowUpRequest from "./FollowUpRequest";
 
 const C = {
   surface: "#FBFAF7",
@@ -363,6 +364,10 @@ export default async function PatientReportPage({
             gap: 14,
           }}
         >
+          <FollowUpRequest
+            roomToken={roomToken}
+            patientName={room.patientName}
+          />
           <PrintButton />
           <p
             style={{ fontSize: 12, color: C.ink3, lineHeight: 1.5, margin: 0 }}

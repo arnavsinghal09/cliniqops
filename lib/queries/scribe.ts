@@ -21,3 +21,24 @@ export async function getRecentRoomsForDoctor(
     },
   });
 }
+
+// Active = still in progress; shown in the working view.
+export async function getActiveRoomsForDoctor(clinicId: string, doctorId: string) {
+  return prisma.consultationRoom.findMany({
+    where: { clinicId, doctorId, status: { in: ["WAITING", "ACTIVE"] } },
+    orderBy: { createdAt: "desc" },
+    take: 20,
+  });
+}
+
+// Past = completed/cancelled; shown in the "Past consultations" tab with notes.
+export async function getPastRoomsForDoctor(clinicId: string, doctorId: string) {
+  return prisma.consultationRoom.findMany({
+    where: { clinicId, doctorId, status: { in: ["COMPLETED", "CANCELLED"] } },
+    orderBy: { endedAt: "desc" },
+    take: 30,
+    include: {
+      scribeSession: { include: { soapNote: true } },
+    },
+  });
+}

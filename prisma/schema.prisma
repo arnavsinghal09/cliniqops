@@ -65,6 +65,7 @@ model Clinic {
   alerts            Alert[]
   invitations       Invitation[]
   auditLogs         AuditLog[]
+  savedQueries SavedQuery[]
   consultationRooms ConsultationRoom[]
 }
 
@@ -167,7 +168,22 @@ model FollowUpAction {
 }
 
 
-// ALERTS & AUDIT
+// ALERTS & AUDIT & QUERY SAVING
+
+model SavedQuery {
+  id            String   @id @default(cuid())
+  clinicId      String
+  clinic        Clinic   @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  userId        String
+  question      String   @db.Text
+  sql           String   @db.Text
+  chartType     String?
+  rowCount      Int      @default(0)
+  createdAt     DateTime @default(now())
+
+  @@index([clinicId])
+  @@index([userId])
+}
 
 model Alert {
   id               String        @id @default(cuid())

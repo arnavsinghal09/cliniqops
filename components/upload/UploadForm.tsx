@@ -230,7 +230,12 @@ export default function UploadForm() {
               <p className="text-lg font-semibold text-brand">
                 {result.imported} appointments imported successfully
               </p>
-
+              <a
+                href="/dashboard?fresh=true"
+                className="mt-4 inline-flex items-center gap-2 rounded-ctrl bg-brand px-5 py-2.5 text-sm font-medium text-white transition-all hover:brightness-105 hover:-translate-y-px"
+              >
+                View your dashboard →
+              </a>
               {result.skipped > 0 && (
                 <Collapsible className="mt-3">
                   <CollapsibleTrigger className="flex items-center gap-2 rounded-badge bg-warning-bg px-3 py-1.5 text-xs font-medium text-warning outline-none focus-visible:ring-2 focus-visible:ring-warning">

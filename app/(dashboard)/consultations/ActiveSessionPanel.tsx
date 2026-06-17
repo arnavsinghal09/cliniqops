@@ -19,7 +19,7 @@ import {
   endConsultation,
   saveScribeTranscript,
 } from "./room-actions";
-import type { PatientOption } from "./ScribePageClient";
+import type { PatientOption } from "./ConsultationsClient";
 
 const C = {
   surface: "#FBFAF7",
@@ -106,10 +106,12 @@ export default function ActiveSessionPanel({
   initialPatients,
   selectedRoomId,
   onClearRoom,
+  onCallEnded,
 }: {
   initialPatients: PatientOption[];
   selectedRoomId: string | null;
   onClearRoom: () => void;
+  onCallEnded: (roomId: string) => void;
 }) {
   const [mode, setMode] = useState<Mode>("standalone");
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
@@ -475,6 +477,7 @@ export default function ActiveSessionPanel({
   }
 
   async function endCall() {
+    const endedRoomId = activeRoomId;
     stopScribe();
     stopTimer();
     pcRef.current?.close();
@@ -486,12 +489,12 @@ export default function ActiveSessionPanel({
     initializingRoomRef.current = null;
 
     const transcript = finalSegments.join(" ");
-    if (activeRoomId) {
+    if (endedRoomId) {
       try {
-        await endConsultation(activeRoomId);
+        await endConsultation(endedRoomId);
         if (transcript.trim()) {
           await saveScribeTranscript(
-            activeRoomId,
+            endedRoomId,
             selectedPatientId || null,
             transcript,
           );
@@ -507,6 +510,7 @@ export default function ActiveSessionPanel({
     setMode("standalone");
     setActiveRoomId(null);
     onClearRoom();
+    if (endedRoomId) onCallEnded(endedRoomId);
   }
 
   /* ---------------- UI ---------------- */

@@ -1,7 +1,21 @@
 "use client";
 
-import { useState, useMemo, useTransition, type CSSProperties } from "react";
+import {
+  useState,
+  useMemo,
+  useTransition,
+  type CSSProperties,
+  useRef,
+  useEffect,
+} from "react";
+import { Bookmark, Trash2 } from "lucide-react";
+import {
+  saveQuery,
+  deleteSavedQuery,
+  type SavedQueryItem,
+} from "./saved-actions";
 import VoiceInput from "./VoiceInput";
+import { useSearchParams } from "next/navigation";
 import {
   ResponsiveContainer,
   BarChart,
@@ -263,10 +277,26 @@ function Card({ children }: { children: React.ReactNode }) {
   );
 }
 
-export default function NLQueryInterface() {
+export default function NLQueryInterface({
+  initialSaved = [],
+}: {
+  initialSaved?: SavedQueryItem[];
+}) {
+  const [saved, setSaved] = useState<SavedQueryItem[]>(initialSaved);
+  const [savingPending, setSavingPending] = useState(false);
   const [text, setText] = useState("");
   const [result, setResult] = useState<NlQueryResult | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  const searchParams = useSearchParams();
+  const prefillRef = useRef(false);
+  const prefillDone = useRef(false);
+
+  const speak = (text: string): void => {
+    if (typeof window === "undefined" || !window.speechSynthesis) return;
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(new SpeechSynthesisUtterance(text));
+  };
 
   const ask = (q: string): void => {
     startTransition(() => {
@@ -285,6 +315,31 @@ export default function NLQueryInterface() {
       });
     });
   };
+
+  useEffect(() => {
+    if (prefillDone.current) return;
+    const prefill = searchParams.get("prefill");
+    if (prefill) {
+      prefillDone.current = true;
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setText(prefill);
+      ask(prefill);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (prefillRef.current) return;
+    const prefill = searchParams.get("prefill");
+    if (prefill) {
+      prefillRef.current = true;
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setText(prefill);
+      ask(prefill);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
   const submit = (): void => {
     const q = text.trim();
     if (!q || isPending) return;
@@ -326,10 +381,52 @@ export default function NLQueryInterface() {
     toast.success("Exported CSV");
   };
 
-  const speak = (text: string): void => {
-    if (typeof window === "undefined" || !window.speechSynthesis) return;
-    window.speechSynthesis.cancel();
-    window.speechSynthesis.speak(new SpeechSynthesisUtterance(text));
+  const saveCurrent = (): void => {
+    if (!result || status !== "data") return;
+    setSavingPending(true);
+    void saveQuery({
+      question: text.trim() || "Untitled query",
+      sql: result.sql ?? "",
+      chartType: view?.kind ?? null,
+      rowCount: result.rows.length,
+    }).then((res) => {
+      setSavingPending(false);
+      if (res.ok) {
+        toast.success("Query saved");
+        // Optimistically add to the list.
+        setSaved((prev) => [
+          {
+            id: `temp-${Date.now()}`,
+            question: text.trim() || "Untitled query",
+            sql: result.sql ?? "",
+            chartType: view?.kind ?? null,
+            rowCount: result.rows.length,
+            createdAt: new Date().toISOString(),
+          },
+          ...prev,
+        ]);
+      } else {
+        toast.error(res.error);
+      }
+    });
+  };
+
+  const removeSaved = (id: string): void => {
+    const prev = saved;
+    setSaved((s) => s.filter((q) => q.id !== id)); // optimistic
+    void deleteSavedQuery(id).then((res) => {
+      if (!res.ok) {
+        setSaved(prev); // rollback
+        toast.error(res.error);
+      } else {
+        toast.success("Removed");
+      }
+    });
+  };
+
+  const runSaved = (q: SavedQueryItem): void => {
+    setText(q.question);
+    ask(q.question);
   };
 
   const status: "idle" | "error" | "empty" | "data" = !result
@@ -340,8 +437,10 @@ export default function NLQueryInterface() {
         ? "empty"
         : "data";
 
+  // eslint-disable-next-line react-hooks/preserve-manual-memoization
   const view = useMemo<ViewModel | null>(
     () => (result && status === "data" ? buildView(result) : null),
+    // eslint-disable-next-line react-hooks/preserve-manual-memoization
     [result, status],
   );
 
@@ -552,7 +651,93 @@ export default function NLQueryInterface() {
           ))}
         </div>
       </div>
-
+      {/* Saved queries */}
+      {saved.length > 0 && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <p
+            style={{
+              fontSize: 11,
+              textTransform: "uppercase",
+              letterSpacing: TRACK,
+              color: C.ink3,
+              fontWeight: 600,
+              margin: 0,
+            }}
+          >
+            Saved queries
+          </p>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {saved.map((q) => (
+              <div
+                key={q.id}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 12,
+                  background: C.surface,
+                  border: `1px solid ${C.border2}`,
+                  borderRadius: R.card,
+                  padding: "10px 14px",
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => runSaved(q)}
+                  disabled={isPending}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    flex: 1,
+                    background: "transparent",
+                    border: "none",
+                    textAlign: "left",
+                    cursor: isPending ? "not-allowed" : "pointer",
+                    minWidth: 0,
+                  }}
+                >
+                  <Bookmark
+                    size={14}
+                    color={C.accent}
+                    strokeWidth={2}
+                    style={{ flexShrink: 0 }}
+                  />
+                  <span
+                    style={{
+                      fontSize: 13.5,
+                      color: C.ink,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {q.question}
+                  </span>
+                  <span style={{ fontSize: 11, color: C.ink3, flexShrink: 0 }}>
+                    {q.rowCount} {q.rowCount === 1 ? "row" : "rows"}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => removeSaved(q.id)}
+                  aria-label="Delete saved query"
+                  style={{
+                    background: "transparent",
+                    border: "none",
+                    cursor: "pointer",
+                    color: C.ink3,
+                    padding: 4,
+                    flexShrink: 0,
+                  }}
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       {/* ── Loading skeleton ── */}
       {isPending && (
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -808,33 +993,67 @@ export default function NLQueryInterface() {
                   {result.rows.length}{" "}
                   {result.rows.length === 1 ? "row" : "rows"}
                 </span>
-                <button
-                  type="button"
-                  onClick={exportCsv}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 6,
-                    color: C.ink2,
-                    fontSize: 12.5,
-                    padding: "5px 10px",
-                    borderRadius: R.ctrl,
-                    border: `1px solid ${C.border2}`,
-                    background: C.surface,
-                    cursor: "pointer",
-                    transition: `all 150ms ${EASE}`,
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = C.accentMut;
-                    e.currentTarget.style.color = C.accentDk;
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = C.surface;
-                    e.currentTarget.style.color = C.ink2;
-                  }}
-                >
-                  <Download size={13} strokeWidth={2} /> CSV
-                </button>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <button
+                    type="button"
+                    onClick={saveCurrent}
+                    disabled={savingPending}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      color: C.ink2,
+                      fontSize: 12.5,
+                      padding: "5px 10px",
+                      borderRadius: R.ctrl,
+                      border: `1px solid ${C.border2}`,
+                      background: C.surface,
+                      cursor: savingPending ? "not-allowed" : "pointer",
+                      opacity: savingPending ? 0.6 : 1,
+                      transition: `all 150ms ${EASE}`,
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!savingPending) {
+                        e.currentTarget.style.background = C.accentMut;
+                        e.currentTarget.style.color = C.accentDk;
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = C.surface;
+                      e.currentTarget.style.color = C.ink2;
+                    }}
+                  >
+                    <Bookmark size={13} strokeWidth={2} />
+                    {savingPending ? "Saving…" : "Save"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={exportCsv}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      color: C.ink2,
+                      fontSize: 12.5,
+                      padding: "5px 10px",
+                      borderRadius: R.ctrl,
+                      border: `1px solid ${C.border2}`,
+                      background: C.surface,
+                      cursor: "pointer",
+                      transition: `all 150ms ${EASE}`,
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = C.accentMut;
+                      e.currentTarget.style.color = C.accentDk;
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = C.surface;
+                      e.currentTarget.style.color = C.ink2;
+                    }}
+                  >
+                    <Download size={13} strokeWidth={2} /> CSV
+                  </button>
+                </div>
               </div>
               <div style={{ overflowX: "auto" }}>
                 <table style={{ width: "100%", borderCollapse: "collapse" }}>
