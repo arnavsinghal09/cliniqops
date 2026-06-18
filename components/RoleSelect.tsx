@@ -21,7 +21,7 @@ export default function RoleSelect({
     setError(null);
     startTransition(async () => {
       const res = await updateUserRole(userId, next);
-      if (res?.error) {
+      if (res && !res.ok) {
         setRole(prev); // rollback
         setError(res.error);
       }

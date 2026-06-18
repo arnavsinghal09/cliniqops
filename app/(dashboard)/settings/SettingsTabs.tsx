@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { Users, UserCog, Building2, ScrollText } from "lucide-react";
-import type { Role } from "@/lib/permissions";
 import TeamSection, { type TeamUser } from "./sections/TeamSection";
 import AccountSection, { type MeProfile } from "./sections/AccountSection";
 

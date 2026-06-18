@@ -2,15 +2,12 @@
 
 import { useActionState } from "react";
 import { createUser } from "@/app/(dashboard)/settings/actions";
-import type { Role } from "@/lib/permissions";
 import LayeredCard from "@/components/ui-kit/LayeredCard";
 
 type State = { tempPassword?: string; error?: string } | null;
 
 async function action(_prev: State, formData: FormData): Promise<State> {
-  const email = String(formData.get("email") ?? "");
-  const role = String(formData.get("role") ?? "DOCTOR") as Role;
-  return createUser(email, role);
+  return createUser(formData);
 }
 
 export default function CreateUserForm() {

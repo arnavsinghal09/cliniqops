@@ -3,7 +3,35 @@
 import { useRef, useState } from "react";
 import { Mic } from "lucide-react";
 
-type SR = typeof window extends { SpeechRecognition: infer T } ? T : any;
+interface SpeechRecognitionResult {
+  0: { transcript: string };
+}
+
+interface SpeechRecognitionResultList {
+  length: number;
+  [index: number]: SpeechRecognitionResult;
+}
+
+interface SpeechRecognitionEventLike {
+  results: SpeechRecognitionResultList;
+}
+
+interface SpeechRecognitionLike {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  onresult: ((event: SpeechRecognitionEventLike) => void) | null;
+  onend: (() => void) | null;
+  onerror: (() => void) | null;
+  start(): void;
+  stop(): void;
+}
+
+type ExtendedWindow = Window &
+  typeof globalThis & {
+    SpeechRecognition?: new () => SpeechRecognitionLike;
+    webkitSpeechRecognition?: new () => SpeechRecognitionLike;
+  };
 
 export default function VoiceInput({
   onTranscript,
@@ -15,11 +43,9 @@ export default function VoiceInput({
   const [active, setActive] = useState(false);
   const [tip, setTip] = useState<string | null>(null);
   const finalRef = useRef("");
-  const recognitionRef = useRef<any>(null);
-
+  const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
 
   const start = () => {
-    // If already listening, stop.
     if (recognitionRef.current) {
       recognitionRef.current.stop();
       recognitionRef.current = null;
@@ -27,23 +53,22 @@ export default function VoiceInput({
       return;
     }
 
-    const SpeechRecognition =
-      (window as any).SpeechRecognition ||
-      (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) {
+    const w = window as ExtendedWindow;
+    const SpeechRecognitionAPI = w.SpeechRecognition ?? w.webkitSpeechRecognition;
+    if (!SpeechRecognitionAPI) {
       setTip("Voice input requires Chrome or Edge");
       setTimeout(() => setTip(null), 2500);
       return;
     }
-    const recognition = new SpeechRecognition();
-    recognition.continuous = true; // ← was false
+    const recognition = new SpeechRecognitionAPI();
+    recognition.continuous = true;
     recognition.interimResults = true;
     recognition.lang = "en-IN";
 
-    recognition.onresult = (event: any) => {
-      const transcript = Array.from(event.results)
-        .map((r: any) => r[0].transcript)
-        .join("");
+    recognition.onresult = (event: SpeechRecognitionEventLike) => {
+      const transcript = Array.from({ length: event.results.length }, (_, i) =>
+        event.results[i][0].transcript,
+      ).join("");
       finalRef.current = transcript;
       onTranscript(transcript);
     };

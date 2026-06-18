@@ -10,6 +10,13 @@ type Toast = {
   severity: string;
 };
 
+type AlertRecord = {
+  id?: string;
+  metric: string;
+  deviationPercent: number;
+  severity: string;
+};
+
 export default function AlertToastListener({ clinicId }: { clinicId: string }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
 
@@ -29,7 +36,7 @@ export default function AlertToastListener({ clinicId }: { clinicId: string }) {
           filter: `clinicId=eq.${clinicId}`,
         },
         (payload) => {
-          const a = payload.new as any;
+          const a = payload.new as AlertRecord;
           const id = a.id ?? String(Date.now());
           setToasts((prev) => [
             ...prev,
