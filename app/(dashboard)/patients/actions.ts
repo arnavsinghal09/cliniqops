@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { getPatientHistory, getFollowUps } from "@/lib/queries/patients";
+import { getScope } from "@/lib/queries/scope";
 
 export async function markPatientContacted(patientId: string, notes: string) {
   const session = await auth();
@@ -32,11 +33,11 @@ export async function markPatientContacted(patientId: string, notes: string) {
 export async function getPatientDrawerData(patientId: string) {
   const session = await auth();
   if (!session) throw new Error("Unauthorized");
-  const clinicId = session.user.clinicId;
+  const scope = getScope(session);
 
   const [history, followUps] = await Promise.all([
-    getPatientHistory(patientId, clinicId),
-    getFollowUps(patientId, clinicId),
+    getPatientHistory(patientId, scope),
+    getFollowUps(patientId, scope),
   ]);
 
   return { history, followUps };
