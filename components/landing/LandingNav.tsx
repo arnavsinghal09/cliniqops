@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { Square } from "lucide-react";
+import DemoLoginButton from "@/components/demo/DemoLoginButton";
 import { useEffect, useState } from "react";
 
 export default function LandingNav() {
@@ -52,16 +53,17 @@ export default function LandingNav() {
         </div>
 
         <div className="flex items-center gap-3">
-          <Link
-            href="/login"
-            className={`rounded-sm px-4 py-2 text-sm font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-sand ${
-              solid
-                ? "text-ink-2 hover:bg-sand"
-                : "text-sand/80 hover:text-surface"
-            }`}
+          <div
+            style={{
+              display: "flex",
+              gap: 12,
+              alignItems: "flex-start",
+              flexWrap: "wrap",
+            }}
           >
-            Sign in
-          </Link>
+            {/* your existing primary CTA, e.g. <Link href="/login">Sign in</Link> */}
+            <DemoLoginButton variant="secondary" />
+          </div>
           <Link
             href="/login"
             className="rounded-sm bg-sand px-4 py-2 text-sm font-semibold uppercase tracking-eyebrow text-ink transition-transform hover:-translate-y-0.5 outline-none focus-visible:ring-2 focus-visible:ring-sand"

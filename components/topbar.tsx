@@ -1,4 +1,5 @@
 "use client";
+import TakeTourButton from "@/lib/tour/TakeTourButton";
 
 import { usePathname } from "next/navigation";
 
@@ -25,6 +26,7 @@ export default function TopBar({ clinicName }: { clinicName: string }) {
       <h1 className="font-display text-xl font-semibold tracking-tight text-ink">
         {title}
       </h1>
+      <TakeTourButton />
       <span className="rounded-sm border border-line bg-brand-muted/50 px-3 py-1 text-xs font-medium text-brand">
         {clinicName}
       </span>

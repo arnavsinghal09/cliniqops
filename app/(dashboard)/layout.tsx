@@ -1,8 +1,10 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
+import ProductTour from "@/lib/tour/ProductTour";
 import prisma  from "@/lib/prisma";
 import Sidebar from "@/components/sidebar";
 import TopBar from "@/components/topbar";
+import { Suspense } from "react";
 import AlertToastListener from "@/components/AlertToastListener";
 
 export default async function DashboardLayout({
@@ -21,6 +23,9 @@ export default async function DashboardLayout({
 
   return (
     <>
+      <Suspense fallback={null}>
+        <ProductTour />
+      </Suspense>
       <AlertToastListener clinicId={session.user.clinicId} />
       <div className="flex h-screen bg-bg">
         <Sidebar
