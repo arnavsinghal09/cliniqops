@@ -85,6 +85,7 @@ export default function ProductTour() {
     if (startedRef.current) return;
     if (searchParams.get("tour") === "1") {
       startedRef.current = true;
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       startTour();
     }
   }, [searchParams, startTour]);
@@ -129,6 +130,7 @@ export default function ProductTour() {
   useEffect(() => {
     if (!isActive || !step) return;
     if (isModalStep(step)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setRect(null);
       return;
     }
