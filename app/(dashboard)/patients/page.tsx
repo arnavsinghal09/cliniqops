@@ -75,7 +75,7 @@ export default async function PatientsPage({
       {/* Live, URL-synced filter bar (client). */}
       <PatientFilters />
 
-      <LayeredCard grain={false} className="p-0">
+      <LayeredCard grain={false} className="p-0" data-tour="patient-table">
         <Table>
           <TableHeader>
             <TableRow className="border-line hover:bg-transparent">

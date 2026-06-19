@@ -1,14 +1,23 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { Copy, Check, Plus, Video } from "lucide-react";
-import { createConsultationRoom, type CreateRoomInput } from "./room-actions";
+import { useState, useTransition, useRef, useEffect } from "react";
+import { Copy, Check, Plus, Video, X, Pencil } from "lucide-react";
+import { createConsultationRoom, cancelConsultationRoom, renameRoomPatient, type CreateRoomInput } from "./room-actions";
 import type {
   RoomSummary,
   PatientOption,
   RoomStatus,
 } from "./ConsultationsClient";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
+import { toast } from "sonner";
+
+async function withRetry<T>(fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn();
+  } catch {
+    return await fn();
+  }
+}
 const C = {
   surface: "#FBFAF7",
   bg: "#F4F1EB",
@@ -73,6 +82,7 @@ export default function RoomManagementPanel({
   onJoinRoom: (roomId: string) => void;
 }) {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const prefillName = searchParams.get("newPatient") ?? "";
   const prefillId = searchParams.get("newPatientId") ?? "";
   const [pending, start] = useTransition();
@@ -80,6 +90,15 @@ export default function RoomManagementPanel({
   const [createdLink, setCreatedLink] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [copiedIds, setCopiedIds] = useState<Set<string>>(new Set());
+  const [confirmCancelId, setConfirmCancelId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
+  const [savingName, setSavingName] = useState(false);
+  const editInputRef = useRef<HTMLInputElement>(null);
+  const [localRooms, setLocalRooms] = useState<RoomSummary[]>(rooms);
+
+  useEffect(() => { setLocalRooms(rooms); }, [rooms]);
 
   const submit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -101,15 +120,30 @@ export default function RoomManagementPanel({
     }
     setError(null);
 
+    const tempId = `temp-${Date.now()}`;
+    const tempRoom: RoomSummary = {
+      id: tempId,
+      roomToken: "",
+      patientName: input.patientName,
+      status: "WAITING",
+      scheduledAt: input.scheduledAt ?? null,
+      hasSoapNote: false,
+    };
+    setLocalRooms(prev => [...prev, tempRoom]);
+
     start(async () => {
       try {
-        const res = await createConsultationRoom(input);
+        const res = await withRetry(() => createConsultationRoom(input));
         setCreatedLink(res.patientLink);
         setCopied(false);
         form.reset();
         setUseExisting(false);
+        router.refresh();
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Couldn't create room.");
+        setLocalRooms(prev => prev.filter(r => r.id !== tempId));
+        const msg = err instanceof Error ? err.message : "Couldn't create room.";
+        setError(msg);
+        toast.error(msg);
       }
     });
   };
@@ -119,6 +153,56 @@ export default function RoomManagementPanel({
     navigator.clipboard.writeText(createdLink);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const copyRoomLink = (roomId: string, token: string) => {
+    const link = `${window.location.origin}/consultation/${token}`;
+    void navigator.clipboard.writeText(link);
+    setCopiedIds((prev) => new Set(prev).add(roomId));
+    setTimeout(() => setCopiedIds((prev) => { const s = new Set(prev); s.delete(roomId); return s; }), 2000);
+  };
+
+  const startEdit = (roomId: string, currentName: string) => {
+    setEditingId(roomId);
+    setEditName(currentName);
+    setTimeout(() => editInputRef.current?.focus(), 50);
+  };
+
+  const saveEdit = async () => {
+    if (!editingId || !editName.trim()) { setEditingId(null); return; }
+    const id = editingId;
+    const newName = editName.trim();
+    const prev = localRooms;
+    setLocalRooms(rooms => rooms.map(r => r.id === id ? { ...r, patientName: newName } : r));
+    setEditingId(null);
+    setSavingName(true);
+    try {
+      const res = await withRetry(() => renameRoomPatient(id, newName));
+      if (!res.ok) throw new Error(res.error);
+    } catch (err) {
+      setLocalRooms(prev);
+      toast.error(err instanceof Error ? err.message : "Couldn't rename patient.");
+    } finally {
+      setSavingName(false);
+    }
+  };
+
+  const handleCancel = async (roomId: string) => {
+    if (confirmCancelId !== roomId) {
+      setConfirmCancelId(roomId);
+      setTimeout(() => setConfirmCancelId((c) => (c === roomId ? null : c)), 3000);
+      return;
+    }
+    setConfirmCancelId(null);
+    const prev = localRooms;
+    setLocalRooms(rooms => rooms.filter(r => r.id !== roomId));
+    try {
+      const res = await withRetry(() => cancelConsultationRoom(roomId));
+      if (!res.ok) throw new Error(res.error);
+    } catch (err) {
+      setLocalRooms(prev);
+      toast.error(err instanceof Error ? err.message : "Couldn't cancel room.");
+    }
   };
 
   const fmtSchedule = (iso: string | null) => {
@@ -133,7 +217,7 @@ export default function RoomManagementPanel({
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+    <div data-tour="new-consultation" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <style>{`
         @keyframes rmp-dot { 0%,100% { opacity: 1 } 50% { opacity: 0.3 } }
         .rmp-pulse { animation: rmp-dot 1.2s ease-in-out infinite; }
@@ -331,7 +415,7 @@ export default function RoomManagementPanel({
               </button>
             </div>
             <p style={{ fontSize: 11.5, color: C.ink3, margin: "8px 0 0" }}>
-              Share via WhatsApp or email. The patient opens it to join — no
+              Share via WhatsApp or email. The patient opens it to join, no
               login needed.
             </p>
           </div>
@@ -353,7 +437,7 @@ export default function RoomManagementPanel({
           Active & upcoming
         </p>
 
-        {rooms.length === 0 ? (
+        {localRooms.length === 0 ? (
           <div
             style={{
               background: C.surface,
@@ -368,17 +452,28 @@ export default function RoomManagementPanel({
             No consultation rooms yet.
           </div>
         ) : (
-          rooms.map((room) => {
+          localRooms.map((room) => {
             const badge = STATUS_BADGE[room.status];
             const joinable =
               room.status === "WAITING" || room.status === "ACTIVE";
+            const cancellable = joinable;
             const schedule = fmtSchedule(room.scheduledAt);
+            const isCopied = copiedIds.has(room.id);
+            const isCancelling = room.id.startsWith("temp-");
+            const isConfirmingCancel = confirmCancelId === room.id;
+            const leftBorderColor =
+              room.status === "ACTIVE"
+                ? C.danger
+                : room.status === "WAITING"
+                  ? C.warning
+                  : C.border2;
             return (
               <div
                 key={room.id}
                 style={{
                   background: C.surface,
                   border: `1px solid ${C.border2}`,
+                  borderLeft: `3px solid ${leftBorderColor}`,
                   borderRadius: 6,
                   padding: "14px 16px",
                   boxShadow: "0 1px 2px rgba(40,30,20,0.05)",
@@ -388,20 +483,42 @@ export default function RoomManagementPanel({
                   gap: 12,
                 }}
               >
-                <div style={{ minWidth: 0 }}>
-                  <div
-                    style={{ display: "flex", alignItems: "center", gap: 8 }}
-                  >
-                    <span
-                      style={{
-                        fontSize: 14,
-                        fontWeight: 600,
-                        color: C.ink,
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {room.patientName}
-                    </span>
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                    {editingId === room.id ? (
+                      <form
+                        onSubmit={(e) => { e.preventDefault(); void saveEdit(); }}
+                        style={{ display: "flex", alignItems: "center", gap: 6 }}
+                      >
+                        <input
+                          ref={editInputRef}
+                          value={editName}
+                          onChange={(e) => setEditName(e.target.value)}
+                          onBlur={() => void saveEdit()}
+                          onKeyDown={(e) => e.key === "Escape" && setEditingId(null)}
+                          style={{ ...inputStyle, padding: "4px 8px", fontSize: 13, width: 140 }}
+                          disabled={savingName}
+                        />
+                      </form>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => startEdit(room.id, room.patientName)}
+                        title="Edit patient name"
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 5,
+                          background: "transparent",
+                          border: "none",
+                          padding: 0,
+                          cursor: "pointer",
+                        }}
+                      >
+                        <span style={{ fontSize: 14, fontWeight: 600, color: C.ink }}>{room.patientName}</span>
+                        <Pencil size={11} strokeWidth={2} style={{ color: C.ink3, opacity: 0.6 }} />
+                      </button>
+                    )}
                     <span
                       style={{
                         display: "inline-flex",
@@ -420,49 +537,103 @@ export default function RoomManagementPanel({
                       {badge.pulse && (
                         <span
                           className="rmp-pulse"
-                          style={{
-                            width: 6,
-                            height: 6,
-                            borderRadius: "50%",
-                            background: badge.color,
-                          }}
+                          style={{ width: 6, height: 6, borderRadius: "50%", background: badge.color }}
                         />
                       )}
                       {badge.label}
                     </span>
                   </div>
                   {schedule && (
-                    <p
-                      style={{ fontSize: 12, color: C.ink3, margin: "3px 0 0" }}
-                    >
-                      {schedule}
-                    </p>
+                    <p style={{ fontSize: 12, color: C.ink3, margin: "3px 0 0" }}>{schedule}</p>
                   )}
                 </div>
 
-                {joinable && (
-                  <button
-                    type="button"
-                    onClick={() => onJoinRoom(room.id)}
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 6,
-                      flexShrink: 0,
-                      background: C.accent,
-                      color: C.surface,
-                      border: "none",
-                      borderRadius: 6,
-                      padding: "8px 14px",
-                      fontSize: 13,
-                      fontWeight: 600,
-                      cursor: "pointer",
-                    }}
-                  >
-                    <Video size={14} strokeWidth={2.2} />
-                    Join call
-                  </button>
-                )}
+                <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+                  {/* Copy patient link */}
+                  {joinable && (
+                    <button
+                      type="button"
+                      title={isCopied ? "Copied!" : "Copy patient link"}
+                      onClick={() => copyRoomLink(room.id, room.roomToken)}
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        background: isCopied ? C.okBg : C.accentMut,
+                        color: isCopied ? C.ok : C.accentDk,
+                        border: `1px solid ${isCopied ? C.ok : C.border2}`,
+                        borderRadius: 6,
+                        width: 32,
+                        height: 32,
+                        cursor: "pointer",
+                        transition: "background 0.15s",
+                      }}
+                    >
+                      {isCopied ? <Check size={13} strokeWidth={2.4} /> : <Copy size={13} strokeWidth={2.2} />}
+                    </button>
+                  )}
+
+                  {/* Join call */}
+                  {joinable && (
+                    <button
+                      type="button"
+                      onClick={() => onJoinRoom(room.id)}
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 6,
+                        background: C.accent,
+                        color: C.surface,
+                        border: "none",
+                        borderRadius: 6,
+                        padding: "7px 13px",
+                        fontSize: 13,
+                        fontWeight: 600,
+                        cursor: "pointer",
+                      }}
+                    >
+                      <Video size={13} strokeWidth={2.2} />
+                      Join
+                    </button>
+                  )}
+
+                  {/* Cancel room */}
+                  {cancellable && (
+                    <button
+                      type="button"
+                      title={isConfirmingCancel ? "Click again to confirm" : "Cancel room"}
+                      onClick={() => void handleCancel(room.id)}
+                      disabled={isCancelling}
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: 4,
+                        background: isConfirmingCancel ? C.dangerBg : "transparent",
+                        color: isConfirmingCancel ? C.danger : C.ink3,
+                        border: `1px solid ${isConfirmingCancel ? C.danger : C.border}`,
+                        borderRadius: 6,
+                        padding: isConfirmingCancel ? "5px 10px" : "0",
+                        width: isConfirmingCancel ? "auto" : 32,
+                        height: 32,
+                        fontSize: 11,
+                        fontWeight: 600,
+                        cursor: isCancelling ? "not-allowed" : "pointer",
+                        opacity: isCancelling ? 0.5 : 1,
+                        whiteSpace: "nowrap",
+                        transition: "all 0.15s",
+                      }}
+                    >
+                      {isCancelling ? (
+                        "…"
+                      ) : isConfirmingCancel ? (
+                        "Confirm?"
+                      ) : (
+                        <X size={13} strokeWidth={2.2} />
+                      )}
+                    </button>
+                  )}
+                </div>
               </div>
             );
           })

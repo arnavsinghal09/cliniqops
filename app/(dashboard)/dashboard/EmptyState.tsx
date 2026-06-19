@@ -84,7 +84,7 @@ export default function EmptyState() {
           }}
         >
           Upload your clinic&apos;s appointment data to see no-show rates,
-          revenue, alerts, and more — or load demo data to explore.
+          revenue, alerts, and more. Or load demo data to explore.
         </p>
         <div
           style={{

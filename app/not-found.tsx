@@ -62,7 +62,7 @@ export default function NotFound() {
           This chart isn&apos;t on file.
         </h1>
         <p className="mx-auto mt-4 max-w-sm text-[15px] text-ink-2">
-          The page you&apos;re looking for wandered off — maybe filed under the
+          The page you&apos;re looking for wandered off, maybe filed under the
           wrong tab, maybe never admitted. Let&apos;s get you back to the front
           desk.
         </p>

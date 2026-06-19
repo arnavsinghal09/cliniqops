@@ -48,6 +48,7 @@ export default async function RevenuePage({
 
       {/* Metric row */}
       <div
+        data-tour="revenue-leakage-summary"
         style={{
           display: "grid",
           gridTemplateColumns: "repeat(3, 1fr)",
@@ -104,6 +105,7 @@ export default async function RevenuePage({
           </LayeredCard>
         </DrawBorder>
 
+        <div data-tour="revenue-trend-chart">
         <DrawBorder>
           <LayeredCard>
             <div style={{ padding: 20 }}>
@@ -134,6 +136,7 @@ export default async function RevenuePage({
             </div>
           </LayeredCard>
         </DrawBorder>
+        </div>
       </div>
 
       {/* Flagged appointments table */}

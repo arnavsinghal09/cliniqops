@@ -6,7 +6,6 @@ import {
   getAlertsForClinic,
   getWeeklyTrendForMetric,
 } from "@/lib/queries/alerts";
-import { markAllAlertsRead } from "./actions";
 import AlertsList, { type AlertRow } from "./AlertsList";
 
 export default async function AlertsPage() {
@@ -34,35 +33,7 @@ export default async function AlertsPage() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-      <div
-        style={{
-          display: "flex",
-          alignItems: "flex-start",
-          justifyContent: "space-between",
-          gap: 16,
-        }}
-      >
-        <SectionLabel eyebrow="ANOMALY FEED" title="Alerts & insights" />
-        {rows.length > 0 && (
-          <form action={markAllAlertsRead}>
-            <button
-              type="submit"
-              style={{
-                background: "#72554D",
-                color: "#FBFAF7",
-                borderRadius: 6,
-                padding: "8px 16px",
-                border: "none",
-                fontSize: 13,
-                fontWeight: 600,
-                cursor: "pointer",
-              }}
-            >
-              Mark all read
-            </button>
-          </form>
-        )}
-      </div>
+      <SectionLabel eyebrow="ANOMALY FEED" title="Alerts & insights" />
 
       {rows.length === 0 ? (
         <LayeredCard>
@@ -78,7 +49,9 @@ export default async function AlertsPage() {
           </div>
         </LayeredCard>
       ) : (
-        <AlertsList alerts={rows} />
+        <div data-tour="alerts-list">
+          <AlertsList alerts={rows} />
+        </div>
       )}
     </div>
   );

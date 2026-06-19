@@ -12,11 +12,7 @@ type SignInResult = {
   url: string | null;
 };
 
-export default function DemoLoginButton({
-  variant = "secondary",
-}: {
-  variant?: "primary" | "secondary";
-}) {
+export default function DemoLoginButton({ solid = false }: { solid?: boolean }) {
   const router = useRouter();
   const [pending, setPending] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -41,34 +37,22 @@ export default function DemoLoginButton({
     router.push("/dashboard?tour=1&fresh=true");
   }, [router]);
 
-  const isPrimary = variant === "primary";
-
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+    <div className="flex flex-col gap-1.5">
       <button
         type="button"
         onClick={signInAsDemo}
         disabled={pending}
-        style={{
-          display: "inline-flex",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 8,
-          background: isPrimary ? "#72554D" : "#FBFAF7",
-          color: isPrimary ? "#FBFAF7" : "#4A352E",
-          border: isPrimary ? "none" : "1px solid #D8D0C4",
-          borderRadius: 6,
-          padding: "11px 22px",
-          fontSize: 14,
-          fontWeight: 600,
-          cursor: pending ? "not-allowed" : "pointer",
-          opacity: pending ? 0.6 : 1,
-        }}
+        className={`inline-flex items-center justify-center gap-2 rounded-sm px-4 py-2 text-sm font-semibold uppercase tracking-eyebrow transition-colors disabled:cursor-not-allowed disabled:opacity-60 outline-none focus-visible:ring-2 focus-visible:ring-sand ${
+          solid
+            ? "border border-line bg-surface text-ink hover:bg-sand"
+            : "border border-sand/40 text-sand hover:bg-sand/10 focus-visible:ring-offset-clay"
+        }`}
       >
-        {pending ? "Starting demo…" : "View live demo"}
+        {pending ? "Starting…" : "Take a tour"}
       </button>
       {error && (
-        <span style={{ fontSize: 12.5, color: "#B4423A" }}>{error}</span>
+        <span className="text-xs text-red-600">{error}</span>
       )}
     </div>
   );

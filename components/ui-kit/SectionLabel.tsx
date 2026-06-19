@@ -25,14 +25,17 @@ export default function SectionLabel({
 }: Props) {
   const Heading = `h${level}` as keyof JSX.IntrinsicElements;
   const fontClass = serif ? "font-serif" : "font-display";
+  const isCenter = align === "center";
 
   return (
-    <div className={`${align === "center" ? "text-center" : ""} ${className}`}>
-      <p className="text-[11px] font-semibold uppercase tracking-eyebrow text-ink-3">
+    <div
+      className={`${isCenter ? "text-center" : "border-l-2 border-brand pl-3"} ${className}`}
+    >
+      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-brand">
         {eyebrow}
       </p>
       <Heading
-        className={`mt-2 ${fontClass} font-medium tracking-tight text-ink ${SIZE[level]}`}
+        className={`mt-1.5 ${fontClass} font-semibold tracking-tight text-ink ${SIZE[level]}`}
       >
         {title}
       </Heading>

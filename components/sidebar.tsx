@@ -74,15 +74,37 @@ const NavList = memo(function NavList({
         const isActive = href === activeHref;
         const showBadge = href === "/alerts" && unreadCount > 0;
         return (
-          <Link key={href} href={href} className="relative block">
+          <Link
+            key={href}
+            href={href}
+            className="relative block"
+            data-tour={
+              href === "/query"
+                ? "nav-query"
+                : href === "/upload"
+                  ? "nav-upload"
+                  : href === "/consultations"
+                    ? "nav-consultations"
+                    : href === "/patients"
+                      ? "nav-patients"
+                      : href === "/revenue"
+                        ? "nav-revenue"
+                        : href === "/alerts"
+                          ? "nav-alerts"
+                          : undefined
+            }
+          >
             <div className="relative flex items-center gap-3 rounded-sm px-4 py-2.5 text-sm font-medium transition-colors">
               {isActive && (
-                <motion.span
-                  layoutId="navActive"
-                  initial={false}
-                  transition={{ type: "spring", stiffness: 380, damping: 32 }}
-                  className="absolute inset-0 z-0 rounded-sm bg-brand"
-                />
+                <>
+                  <motion.span
+                    layoutId="navActive"
+                    initial={false}
+                    transition={{ type: "spring", stiffness: 380, damping: 32 }}
+                    className="absolute inset-0 z-0 rounded-sm bg-brand"
+                  />
+                  <span className="absolute left-0 top-1 bottom-1 w-0.5 rounded-full bg-surface/60 z-10" />
+                </>
               )}
               <Icon
                 size={19}
@@ -151,16 +173,18 @@ export default function Sidebar({
         .join(" ");
 
   return (
-    <aside className="fixed left-0 top-0 flex h-screen w-60 flex-col border-r border-line bg-surface">
-      <div className="flex items-center gap-2.5 p-6">
-        <Square size={18} className="fill-brand text-brand" />
+    <aside className="fixed left-0 top-0 flex h-screen w-60 flex-col border-r border-line bg-gradient-to-b from-surface to-bg">
+      <div className="flex items-center gap-2.5 px-6 py-5">
+        <div className="flex h-7 w-7 items-center justify-center rounded-sm bg-brand/10 ring-1 ring-brand/20">
+          <Square size={14} className="fill-brand text-brand" />
+        </div>
         <span className="font-display text-base font-semibold tracking-tight text-ink">
           CliniqOps
         </span>
       </div>
 
       <nav className="flex-1 overflow-y-auto px-2">
-        <p className="mb-2 mt-4 px-4 text-[10px] font-semibold uppercase tracking-eyebrow text-ink-3">
+        <p className="mb-2 mt-4 px-4 text-[10px] font-semibold uppercase tracking-eyebrow text-brand/60">
           Main Menu
         </p>
         <NavList
@@ -171,16 +195,16 @@ export default function Sidebar({
       </nav>
 
       {/* User block + sign out */}
-      <div className="m-2 rounded-md border border-line bg-brand-muted/40 p-3">
+      <div className="m-2 rounded-md border border-line bg-brand-muted/50 p-3 shadow-sm">
         <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-sm bg-brand text-sm font-semibold uppercase text-surface">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-sm bg-brand text-sm font-semibold uppercase text-surface ring-1 ring-brand/30">
             {displayName.charAt(0)}
           </div>
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-medium text-ink">
               {displayName}
             </p>
-            <span className="mt-0.5 inline-block rounded-sm bg-surface px-2 py-0.5 text-[10px] font-semibold uppercase tracking-eyebrow text-brand">
+            <span className="mt-0.5 inline-block rounded-sm bg-brand px-2 py-0.5 text-[10px] font-semibold uppercase tracking-eyebrow text-surface">
               {role}
             </span>
           </div>

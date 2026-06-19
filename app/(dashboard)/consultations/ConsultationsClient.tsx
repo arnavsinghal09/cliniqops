@@ -44,19 +44,6 @@ export type PastConsultation = {
   soap: SoapData | null;
 };
 
-const C = {
-  surface: "#FBFAF7",
-  bg: "#F4F1EB",
-  ink: "#1A1714",
-  ink2: "#4A453F",
-  ink3: "#8A827A",
-  border: "#E3DDD3",
-  border2: "#D8D0C4",
-  accent: "#72554D",
-  accentDk: "#4A352E",
-  accentMut: "#EDE6DF",
-} as const;
-
 type Tab = "active" | "past";
 
 export default function ConsultationsClient({
@@ -89,31 +76,18 @@ export default function ConsultationsClient({
       <button
         type="button"
         onClick={() => setTab(id)}
-        style={{
-          display: "inline-flex",
-          alignItems: "center",
-          gap: 8,
-          padding: "9px 16px",
-          borderRadius: 6,
-          border: "none",
-          background: on ? C.accent : "transparent",
-          color: on ? C.surface : C.ink2,
-          fontSize: 14,
-          fontWeight: on ? 600 : 500,
-          cursor: "pointer",
-        }}
+        className={`inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors ${
+          on
+            ? "bg-brand text-surface font-semibold shadow-sm"
+            : "text-ink-2 hover:bg-sand/60 hover:text-ink"
+        }`}
       >
         {icon}
         {label}
         <span
-          style={{
-            fontSize: 11,
-            fontWeight: 700,
-            padding: "1px 7px",
-            borderRadius: 10,
-            background: on ? "rgba(255,255,255,0.22)" : C.accentMut,
-            color: on ? C.surface : C.accentDk,
-          }}
+          className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${
+            on ? "bg-white/20 text-surface" : "bg-brand-muted text-brand-dk"
+          }`}
         >
           {count}
         </span>
@@ -122,15 +96,8 @@ export default function ConsultationsClient({
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-      <div
-        style={{
-          display: "flex",
-          gap: 6,
-          borderBottom: `1px solid ${C.border}`,
-          paddingBottom: 12,
-        }}
-      >
+    <div className="flex flex-col gap-5">
+      <div className="flex gap-1.5 border-b border-line pb-3">
         {tabBtn(
           "active",
           "Active",
@@ -150,21 +117,25 @@ export default function ConsultationsClient({
           style={{
             display: "grid",
             gridTemplateColumns: "minmax(0, 65fr) minmax(0, 35fr)",
-            gap: 20,
+            gap: 0,
             alignItems: "start",
           }}
         >
-          <ActiveSessionPanel
-            initialPatients={patients}
-            selectedRoomId={selectedRoomId}
-            onClearRoom={() => setSelectedRoomId(null)}
-            onCallEnded={handleCallEnded}
-          />
-          <RoomManagementPanel
-            rooms={active}
-            patients={patients}
-            onJoinRoom={setSelectedRoomId}
-          />
+          <div className="border-r border-line pr-5">
+            <ActiveSessionPanel
+              initialPatients={patients}
+              selectedRoomId={selectedRoomId}
+              onClearRoom={() => setSelectedRoomId(null)}
+              onCallEnded={handleCallEnded}
+            />
+          </div>
+          <div className="pl-5">
+            <RoomManagementPanel
+              rooms={active}
+              patients={patients}
+              onJoinRoom={setSelectedRoomId}
+            />
+          </div>
         </div>
       ) : (
         <PastConsultationsPanel

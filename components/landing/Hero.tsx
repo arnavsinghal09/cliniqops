@@ -9,7 +9,7 @@ import {
   useTransform,
 } from "framer-motion";
 import { stagger, wordReveal } from "@/lib/motion";
-import LightFan from "./LightFan";
+import LayeredCardStack from "./LayeredCards";
 
 const HEADLINE = ["Move", "every", "patient", "forward."];
 
@@ -44,7 +44,7 @@ export default function Hero() {
       onPointerLeave={onPointerLeave}
       className="relative flex min-h-svh items-center overflow-hidden bg-clay pt-24"
     >
-      <div className="mx-auto grid w-full max-w-6xl grid-cols-1 items-center gap-12 px-6 md:grid-cols-2">
+      <div className="mx-auto grid w-full max-w-6xl grid-cols-1 items-center gap-12 px-6 md:grid-cols-[1fr_360px] md:gap-16 lg:gap-20">
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-eyebrow text-sand/70">
             Patient flow · Billing · Staffing
@@ -104,9 +104,9 @@ export default function Hero() {
 
         <motion.div
           style={{ opacity: fanOpacity, y: fanY }}
-          className="flex justify-start"
+          className="flex items-center justify-center"
         >
-          <LightFan mx={mx} my={my} />
+          <LayeredCardStack/>
         </motion.div>
       </div>
 
@@ -115,10 +115,6 @@ export default function Hero() {
           Scroll
         </span>
       </div>
-      <div
-        aria-hidden
-        className="fade-amber-to-bg pointer-events-none absolute inset-x-0 bottom-0 h-40"
-      />
     </section>
   );
 }

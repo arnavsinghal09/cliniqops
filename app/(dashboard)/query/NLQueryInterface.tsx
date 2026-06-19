@@ -473,6 +473,7 @@ export default function NLQueryInterface({
       `}</style>
 
       {/* ── Input ── */}
+      <div data-tour="query-input">
       <Card>
         <textarea
           value={text}
@@ -600,9 +601,10 @@ export default function NLQueryInterface({
           </div>
         </div>
       </Card>
+      </div>
 
       {/* ── Chips ── */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <div data-tour="query-chips" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         <p
           style={{
             fontSize: 11,

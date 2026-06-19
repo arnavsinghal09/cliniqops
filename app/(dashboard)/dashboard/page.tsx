@@ -121,7 +121,7 @@ export default async function DashboardPage({
         </div>
       )}
       {/* Hero banner */}
-      <div className="relative flex items-center justify-between overflow-hidden rounded-md border border-brand-dk bg-brand p-8">
+      <div data-tour="revenue-banner" className="relative flex items-center justify-between overflow-hidden rounded-md border border-brand-dk bg-brand p-8">
         <span aria-hidden className="grain-tex opacity-[0.07]" />
         <div className="relative">
           <p className="text-[11px] font-semibold uppercase tracking-eyebrow text-brand-muted">
@@ -202,6 +202,7 @@ export default async function DashboardPage({
       </form>
 
       {/* Revenue leakage card — full width, above metric grid. */}
+      <div data-tour="leakage-card">
       <DrawBorder>
         <LayeredCard className="p-6 border-l-4 border-l-danger">
           <SectionLabel
@@ -217,9 +218,10 @@ export default async function DashboardPage({
           </p>
         </LayeredCard>
       </DrawBorder>
+      </div>
 
       {/* Metric cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div data-tour="metric-cards" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <MetricCard
           eyebrow="Total Revenue"
           value={`₹${summary.totalRevenue.toLocaleString("en-IN")}`}
@@ -248,7 +250,7 @@ export default async function DashboardPage({
       </div>
 
       {/* Charts grid */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <div data-tour="charts-grid" className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <ChartCard
           title="No-Show Rate by Doctor"
           subtitle="Selected range — threshold at 15%"

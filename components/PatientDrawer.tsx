@@ -113,31 +113,31 @@ export default function PatientDrawer({
 
   return (
     <Sheet onOpenChange={onOpenChange}>
-      <SheetTrigger className="inline-flex items-center gap-1.5 rounded-sm px-2 py-1 text-sm text-ink-3 transition-colors hover:bg-brand-muted hover:text-brand-dk outline-none focus-visible:ring-2 focus-visible:ring-brand">
+      <SheetTrigger data-tour="patient-drawer-trigger" className="inline-flex items-center gap-1.5 rounded-sm px-2 py-1 text-sm text-ink-3 transition-colors hover:bg-brand-muted hover:text-brand-dk outline-none focus-visible:ring-2 focus-visible:ring-brand">
         <Eye size={15} />
         View
       </SheetTrigger>
 
-      {/* Warm SAND field, wider, generous padding so nothing hugs the edge. */}
-      <SheetContent className="flex w-full flex-col gap-0 overflow-y-auto border-line bg-sand p-6 sm:max-w-lg">
-        <SheetHeader className="space-y-2 px-0">
-          <SheetTitle className="font-display text-2xl font-semibold tracking-tight text-ink">
-            {patientName}
-          </SheetTitle>
-          {history && history.icd10Codes.length > 0 && (
-            <div className="flex flex-wrap gap-1">
-              {history.icd10Codes.map((code) => (
-                <span
-                  key={code}
-                  className="rounded-sm bg-brand-muted px-1.5 py-0.5 text-[11px] font-medium text-brand-dk"
-                >
-                  {code}
-                </span>
-              ))}
-            </div>
-          )}
+      <SheetContent className="flex w-full flex-col gap-0 overflow-y-auto border-line bg-bg p-6 sm:max-w-lg">
+        <SheetHeader className="px-0">
+          <div className="bg-gradient-to-br from-brand to-clay -mx-6 -mt-6 mb-4 px-6 pb-5 pt-8">
+            <SheetTitle className="font-display text-2xl font-semibold tracking-tight text-surface">
+              {patientName}
+            </SheetTitle>
+            {history && history.icd10Codes.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-1">
+                {history.icd10Codes.map((code) => (
+                  <span
+                    key={code}
+                    className="rounded-sm bg-white/20 px-1.5 py-0.5 text-[11px] font-medium text-surface"
+                  >
+                    {code}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
         </SheetHeader>
-        <div className="mt-5 border-t border-line-2" aria-hidden />
         {/* Visit timeline */}
         <div className="mt-6 space-y-3">
           <p className="text-[11px] font-semibold uppercase tracking-eyebrow text-ink-3">
@@ -163,7 +163,7 @@ export default function PatientDrawer({
             history?.appointments.map((a) => (
               <div
                 key={a.id}
-                className="rounded-sm border border-line bg-surface p-3 shadow-card border-l-2 border-l-brand"
+                className="rounded-sm border border-line/60 bg-surface p-3 shadow-sm border-l-2 border-l-brand"
               >
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium text-ink">
@@ -241,7 +241,7 @@ export default function PatientDrawer({
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             placeholder="Called patient, left voicemail about overdue review…"
-            className="mt-2 min-h-20 rounded-sm border-line bg-surface text-sm text-ink focus-visible:ring-brand"
+            className="mt-2 min-h-20 rounded-sm border border-line/60 bg-surface text-sm text-ink focus-visible:ring-brand"
           />
           <button
             type="button"

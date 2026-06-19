@@ -182,6 +182,45 @@ export async function createConsultationRoom(
   return { roomId: room.id, roomToken: room.roomToken, patientLink };
 }
 
+export async function renameRoomPatient(
+  roomId: string,
+  patientName: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const session = await auth();
+  if (!session) return { ok: false, error: "Unauthorized" };
+  const name = patientName.trim();
+  if (!name) return { ok: false, error: "Patient name is required." };
+  const room = await prisma.consultationRoom.findUnique({ where: { id: roomId } });
+  if (!room || room.clinicId !== session.user.clinicId) return { ok: false, error: "Not found." };
+  await prisma.consultationRoom.update({ where: { id: roomId }, data: { patientName: name } });
+  revalidatePath("/consultations");
+  return { ok: true };
+}
+
+export async function cancelConsultationRoom(
+  roomId: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const session = await auth();
+  if (!session) return { ok: false, error: "Unauthorized" };
+
+  const room = await prisma.consultationRoom.findUnique({ where: { id: roomId } });
+  if (!room || room.clinicId !== session.user.clinicId) {
+    return { ok: false, error: "Room not found." };
+  }
+  if (room.status === "COMPLETED") {
+    return { ok: false, error: "Cannot cancel a completed room." };
+  }
+
+  await prisma.consultationRoom.update({
+    where: { id: roomId },
+    data: { status: "CANCELLED", endedAt: new Date() },
+  });
+
+  revalidatePath("/consultations");
+  return { ok: true };
+}
+
+
 export async function startConsultation(roomId: string): Promise<void> {
   const session = await auth();
   if (!session) throw new Error("Unauthorized");

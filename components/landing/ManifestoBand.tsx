@@ -23,8 +23,8 @@ export default function ManifestoBand() {
           transition={{ delay: 0.25, duration: 0.6 }}
           className="mx-auto mt-6 max-w-md text-[15px] text-sand/70"
         >
-          The busywork runs itself, so your team spends their hours on patients
-          — not tabs.
+          The busywork runs itself, so your team spends their hours on patients,
+          not tabs.
         </motion.p>
       </div>
     </section>

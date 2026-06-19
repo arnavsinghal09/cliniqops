@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { format } from "date-fns";
+import { toast } from "sonner";
+import { markAllAlertsRead } from "./actions";
 import {
   AlertTriangle,
   TrendingUp,
@@ -125,11 +127,56 @@ function linePoints(values: number[], w: number, h: number, pad = 2): string {
     .join(" ");
 }
 
+async function withRetry<T>(fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn();
+  } catch {
+    return await fn();
+  }
+}
+
 export default function AlertsList({ alerts }: { alerts: AlertRow[] }) {
   const [active, setActive] = useState<AlertRow | null>(null);
+  const [markDone, setMarkDone] = useState(false);
+  const [pending, startMark] = useTransition();
+
+  const handleMarkAll = () => {
+    setMarkDone(true);
+    startMark(async () => {
+      try {
+        await withRetry(markAllAlertsRead);
+      } catch {
+        setMarkDone(false);
+        toast.error("Couldn't mark alerts as read. Please try again.");
+      }
+    });
+  };
 
   return (
     <>
+      {alerts.length > 0 && (
+        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
+          <button
+            type="button"
+            onClick={handleMarkAll}
+            disabled={pending || markDone}
+            style={{
+              background: markDone ? "#ECF0EA" : "#72554D",
+              color: markDone ? "#4E6B4F" : "#FBFAF7",
+              borderRadius: 6,
+              padding: "8px 16px",
+              border: "none",
+              fontSize: 13,
+              fontWeight: 600,
+              cursor: pending || markDone ? "default" : "pointer",
+              opacity: pending ? 0.7 : 1,
+              transition: "all 0.2s",
+            }}
+          >
+            {markDone ? "Marked as read ✓" : pending ? "Marking…" : "Mark all read"}
+          </button>
+        </div>
+      )}
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {alerts.map((a) => {
           const sev = sevOf(a.severity);

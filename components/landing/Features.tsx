@@ -10,7 +10,7 @@ const FEATURES = [
   {
     icon: CalendarClock,
     title: "See today's flow at a glance",
-    body: "Live status on every appointment — booked, arrived, completed, no-show — so the front desk stops refreshing three systems to answer one question.",
+    body: "Live status on every appointment · booked, arrived, completed, no-show · so the front desk stops refreshing three systems to answer one question.",
   },
   {
     icon: ReceiptText,

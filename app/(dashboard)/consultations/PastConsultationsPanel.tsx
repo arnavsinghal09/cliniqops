@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { FileText, ChevronRight, Clock } from "lucide-react";
+import { FileText, ChevronRight, Clock, Copy, Check } from "lucide-react";
 import type { PastConsultation } from "./ConsultationsClient";
 import SoapEditor from "./SoapEditor";
 import { toast } from "sonner";
@@ -31,6 +31,14 @@ export default function PastConsultationsPanel({
   autoOpenId?: string | null;
 }) {
    const [openId, setOpenId] = useState<string | null>(null);
+   const [copiedIds, setCopiedIds] = useState<Set<string>>(new Set());
+
+   const copyRoomLink = (e: React.MouseEvent, token: string, id: string) => {
+     e.stopPropagation();
+     void navigator.clipboard.writeText(`${window.location.origin}/consultation/${token}`);
+     setCopiedIds((prev) => new Set(prev).add(id));
+     setTimeout(() => setCopiedIds((prev) => { const s = new Set(prev); s.delete(id); return s; }), 2000);
+   };
 
    useEffect(() => {
      if (autoOpenId && consultations.some((c) => c.id === autoOpenId)) {
@@ -178,7 +186,7 @@ export default function PastConsultationsPanel({
               style={{
                 display: "flex",
                 alignItems: "center",
-                gap: 12,
+                gap: 8,
                 flexShrink: 0,
               }}
             >
@@ -196,6 +204,29 @@ export default function PastConsultationsPanel({
               >
                 {noteState.label}
               </span>
+              <button
+                type="button"
+                title={copiedIds.has(c.id) ? "Copied!" : "Copy patient link"}
+                onClick={(e) => copyRoomLink(e, c.roomToken, c.id)}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  width: 28,
+                  height: 28,
+                  borderRadius: 4,
+                  border: `1px solid ${copiedIds.has(c.id) ? C.ok : C.border2}`,
+                  background: copiedIds.has(c.id) ? C.okBg : "transparent",
+                  color: copiedIds.has(c.id) ? C.ok : C.ink3,
+                  cursor: "pointer",
+                  flexShrink: 0,
+                  transition: "all 0.15s",
+                }}
+              >
+                {copiedIds.has(c.id)
+                  ? <Check size={12} strokeWidth={2.4} />
+                  : <Copy size={12} strokeWidth={2} />}
+              </button>
               <ChevronRight size={18} color={C.ink3} />
             </div>
           </button>

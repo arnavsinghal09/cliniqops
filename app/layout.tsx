@@ -17,7 +17,7 @@ const newsreader = Newsreader({
 });
 
 export const metadata: Metadata = {
-  title: "CliniqOps — Move every patient forward",
+  title: "CliniqOps · Move every patient forward",
   description:
     "One calm view for patient flow, billing, and staffing. Less chasing, fewer no-shows.",
 };

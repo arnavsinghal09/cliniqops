@@ -136,6 +136,7 @@ export default function UploadForm() {
 
       {/* Dropzone */}
       <div
+        data-tour="upload-dropzone"
         role="button"
         tabIndex={0}
         onClick={() => fileInputRef.current?.click()}

@@ -139,6 +139,7 @@ export default function ActiveSessionPanel({
   const processorRef = useRef<ScriptProcessorNode | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const initializingRoomRef = useRef<string | null>(null);
+  const supabaseRef = useRef<ReturnType<typeof createClient> | null>(null);
 
   // Auto-scroll transcript.
   useEffect(() => {
@@ -367,10 +368,13 @@ export default function ActiveSessionPanel({
       console.log("[DR] iceConnectionState:", pc.iceConnectionState);
     };
 
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
-    );
+    if (!supabaseRef.current) {
+      supabaseRef.current = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+      );
+    }
+    const supabase = supabaseRef.current;
 
     const channelName = `consultation:${room.roomToken}`;
     console.log("[DR] joining channel:", channelName);

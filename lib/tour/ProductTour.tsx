@@ -16,7 +16,8 @@ import {
   type TourStep,
 } from "@/lib/tour/tourConfig";
 
-const STORAGE_KEY = "cliniqops_has_completed_tour";
+const STORAGE_KEY_COMPLETED = "cliniqops_tour_completed";
+const STORAGE_KEY_PAUSED = "cliniqops_tour_paused_step";
 const POLL_INTERVAL = 100;
 const POLL_TIMEOUT = 4000;
 const MIN_DESKTOP_WIDTH = 1024;
@@ -51,33 +52,47 @@ export default function ProductTour() {
   const [stepIndex, setStepIndex] = useState<number>(0);
   const [rect, setRect] = useState<Rect | null>(null);
   const [viewportTooSmall, setViewportTooSmall] = useState<boolean>(false);
+  const [isScrolling, setIsScrolling] = useState<boolean>(false);
 
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const startedRef = useRef<boolean>(false);
 
   const step: TourStep | undefined = TOUR_STEPS[stepIndex];
   const isLast = stepIndex >= TOUR_STEPS.length - 1;
   const isFirst = stepIndex === 0;
 
-  const endTour = useCallback((): void => {
+  const dismissTour = useCallback((): void => {
     setIsActive(false);
     setRect(null);
     if (pollRef.current) clearInterval(pollRef.current);
     try {
-      window.localStorage.setItem(STORAGE_KEY, "true");
+      window.localStorage.setItem(STORAGE_KEY_PAUSED, String(stepIndex));
+    } catch {
+      /* noop */
+    }
+  }, [stepIndex]);
+
+  const completeTour = useCallback((): void => {
+    setIsActive(false);
+    setRect(null);
+    if (pollRef.current) clearInterval(pollRef.current);
+    try {
+      window.localStorage.setItem(STORAGE_KEY_COMPLETED, "true");
+      window.localStorage.removeItem(STORAGE_KEY_PAUSED);
     } catch {
       /* noop */
     }
   }, []);
 
-  const startTour = useCallback((): void => {
+  const startTour = useCallback((resumeStep?: number): void => {
     try {
-      window.localStorage.removeItem(STORAGE_KEY);
+      window.localStorage.removeItem(STORAGE_KEY_COMPLETED);
     } catch {
       /* noop */
     }
-    setStepIndex(0);
+    setStepIndex(resumeStep ?? 0);
     setIsActive(true);
   }, []);
 
@@ -91,9 +106,10 @@ export default function ProductTour() {
   }, [searchParams, startTour]);
 
   useEffect(() => {
-    const onTrigger = (): void => {
+    const onTrigger = (e: Event): void => {
       startedRef.current = true;
-      startTour();
+      const detail = (e as CustomEvent<{ resumeStep?: number }>).detail;
+      startTour(detail?.resumeStep);
     };
     window.addEventListener("cliniqops:start-tour", onTrigger);
     return () => window.removeEventListener("cliniqops:start-tour", onTrigger);
@@ -143,36 +159,49 @@ export default function ProductTour() {
 
   useEffect(() => {
     if (!isActive || !step || isModalStep(step)) return;
-    const reposition = (): void => {
+    const onScroll = (): void => {
+      const next = readRect(step.targetSelector);
+      if (next) setRect(next);
+      setIsScrolling(true);
+      if (scrollTimerRef.current) clearTimeout(scrollTimerRef.current);
+      scrollTimerRef.current = setTimeout(() => setIsScrolling(false), 150);
+    };
+    const onResize = (): void => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
       debounceRef.current = setTimeout(() => {
         const next = readRect(step.targetSelector);
         if (next) setRect(next);
       }, 60);
     };
-    window.addEventListener("scroll", reposition, true);
-    window.addEventListener("resize", reposition);
+    window.addEventListener("scroll", onScroll, true);
+    window.addEventListener("resize", onResize);
     return () => {
-      window.removeEventListener("scroll", reposition, true);
-      window.removeEventListener("resize", reposition);
+      window.removeEventListener("scroll", onScroll, true);
+      window.removeEventListener("resize", onResize);
       if (debounceRef.current) clearTimeout(debounceRef.current);
+      if (scrollTimerRef.current) clearTimeout(scrollTimerRef.current);
     };
   }, [isActive, step]);
 
   useEffect(() => {
     if (!isActive) return;
     const onKey = (e: KeyboardEvent): void => {
-      if (e.key === "Escape") endTour();
+      if (e.key === "Escape") dismissTour();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [isActive, endTour]);
+  }, [isActive, dismissTour]);
 
   const goToStep = useCallback(
     (nextIndex: number): void => {
       const target = TOUR_STEPS[nextIndex];
       if (!target) return;
       setStepIndex(nextIndex);
+      try {
+        window.localStorage.setItem(STORAGE_KEY_PAUSED, String(nextIndex));
+      } catch {
+        /* noop */
+      }
       if (!isModalStep(target) && pathname !== target.routePath) {
         router.push(target.routePath);
       }
@@ -182,11 +211,11 @@ export default function ProductTour() {
 
   const advance = useCallback((): void => {
     if (isLast) {
-      endTour();
+      completeTour();
       return;
     }
     goToStep(stepIndex + 1);
-  }, [isLast, stepIndex, goToStep, endTour]);
+  }, [isLast, stepIndex, goToStep, completeTour]);
 
   const back = useCallback((): void => {
     if (isFirst) return;
@@ -254,7 +283,7 @@ export default function ProductTour() {
           </p>
           <button
             type="button"
-            onClick={endTour}
+            onClick={dismissTour}
             style={{
               background: C.accent,
               color: C.surface,
@@ -323,7 +352,7 @@ export default function ProductTour() {
             width: rect.width + PAD * 2,
             height: rect.height + PAD * 2,
           }}
-          transition={{ type: "spring", stiffness: 320, damping: 32 }}
+          transition={isScrolling ? { duration: 0 } : { type: "spring", stiffness: 320, damping: 32 }}
           style={{
             position: "fixed",
             borderRadius: 8,
@@ -369,7 +398,7 @@ export default function ProductTour() {
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
-              marginBottom: 8,
+              marginBottom: 4,
             }}
           >
             <span
@@ -385,7 +414,7 @@ export default function ProductTour() {
             </span>
             <button
               type="button"
-              onClick={endTour}
+              onClick={dismissTour}
               aria-label="Close tour"
               style={{
                 background: "transparent",
@@ -399,6 +428,27 @@ export default function ProductTour() {
             >
               ×
             </button>
+          </div>
+
+          {/* Progress dots */}
+          <div style={{ display: "flex", gap: 4, marginBottom: 10 }}>
+            {TOUR_STEPS.map((_, i) => (
+              <div
+                key={i}
+                style={{
+                  width: i === stepIndex ? 16 : 6,
+                  height: 6,
+                  borderRadius: 3,
+                  background:
+                    i === stepIndex
+                      ? C.accent
+                      : i < stepIndex
+                        ? C.accentMut
+                        : C.border2,
+                  transition: "width 0.2s ease, background 0.2s ease",
+                }}
+              />
+            ))}
           </div>
 
           <p
@@ -492,7 +542,7 @@ export default function ProductTour() {
                   cursor: "pointer",
                 }}
               >
-                {isLast ? "End tour" : "Next"}
+                {isLast ? "Finish tour" : "Next"}
               </button>
             )}
           </div>

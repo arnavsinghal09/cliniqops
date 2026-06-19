@@ -53,17 +53,7 @@ export default function LandingNav() {
         </div>
 
         <div className="flex items-center gap-3">
-          <div
-            style={{
-              display: "flex",
-              gap: 12,
-              alignItems: "flex-start",
-              flexWrap: "wrap",
-            }}
-          >
-            {/* your existing primary CTA, e.g. <Link href="/login">Sign in</Link> */}
-            <DemoLoginButton variant="secondary" />
-          </div>
+          <DemoLoginButton solid={solid} />
           <Link
             href="/login"
             className="rounded-sm bg-sand px-4 py-2 text-sm font-semibold uppercase tracking-eyebrow text-ink transition-transform hover:-translate-y-0.5 outline-none focus-visible:ring-2 focus-visible:ring-sand"
