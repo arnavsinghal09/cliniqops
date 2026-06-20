@@ -239,6 +239,12 @@ export default function PatientConsultationRoom({
   }, [callStatus]);
 
   useEffect(() => {
+    if (previewOn && previewVideoRef.current && localStreamRef.current) {
+      previewVideoRef.current.srcObject = localStreamRef.current;
+    }
+  }, [previewOn]);
+
+  useEffect(() => {
     return () => {
       pcRef.current?.close();
       localStreamRef.current?.getTracks().forEach((t) => t.stop());
@@ -255,7 +261,6 @@ export default function PatientConsultationRoom({
       });
       localStreamRef.current = stream;
       setPreviewOn(true);
-      if (previewVideoRef.current) previewVideoRef.current.srcObject = stream;
     } catch {
       setError(
         "We couldn't access your camera or microphone. Please allow permissions and try again.",

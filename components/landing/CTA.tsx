@@ -10,7 +10,7 @@ export default function CTA() {
         <div className="relative overflow-hidden rounded-md bg-sand/50 px-8 py-16 text-center">
           <span aria-hidden className="grain-tex" />
           <div className="relative flex flex-col items-center">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-brand">
+            <p className="text-[11px] font-semibold uppercase tracking-eyebrow text-brand">
               Ready when you are
             </p>
             <h2 className="mt-3 max-w-sm font-display text-3xl font-semibold leading-[1.1] tracking-tight text-ink md:text-4xl">

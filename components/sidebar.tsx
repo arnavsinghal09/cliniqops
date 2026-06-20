@@ -173,7 +173,7 @@ export default function Sidebar({
         .join(" ");
 
   return (
-    <aside className="fixed left-0 top-0 flex h-screen w-60 flex-col border-r border-line bg-gradient-to-b from-surface to-bg">
+    <aside className="fixed left-0 top-0 flex h-screen w-60 flex-col border-r border-line bg-linear-to-b from-surface to-bg">
       <div className="flex items-center gap-2.5 px-6 py-5">
         <div className="flex h-7 w-7 items-center justify-center rounded-sm bg-brand/10 ring-1 ring-brand/20">
           <Square size={14} className="fill-brand text-brand" />
@@ -184,9 +184,17 @@ export default function Sidebar({
       </div>
 
       <nav className="flex-1 overflow-y-auto px-2">
-        <p className="mb-2 mt-4 px-4 text-[10px] font-semibold uppercase tracking-eyebrow text-brand/60">
-          Main Menu
-        </p>
+        <div className="mb-3 mt-4 px-3">
+          <div className="border-t border-dashed border-brand/20 pt-3">
+            <div className="flex items-center gap-2">
+              <span className="inline-block h-1.25 w-1.25 shrink-0 rotate-45 bg-brand/40" />
+              <span className="text-[9px] font-bold uppercase tracking-[0.24em] text-brand/45">
+                Navigate
+              </span>
+              <span className="h-px flex-1 bg-linear-to-r from-brand/15 to-transparent" />
+            </div>
+          </div>
+        </div>
         <NavList
           activeHref={activeHref}
           role={safeRole}
@@ -209,15 +217,14 @@ export default function Sidebar({
             </span>
           </div>
         </div>
-        <form action={logout} className="mt-2.5">
-          <button
-            type="submit"
-            className="flex w-full items-center justify-center gap-2 rounded-sm border border-line bg-surface px-3 py-2 text-xs font-medium text-ink-2 transition-colors hover:bg-sand hover:text-ink outline-none focus-visible:ring-2 focus-visible:ring-brand"
-          >
-            <LogOut size={14} />
-            Sign out
-          </button>
-        </form>
+        <button
+          type="button"
+          onClick={() => logout()}
+          className="mt-2.5 flex w-full items-center justify-center gap-2 rounded-sm border border-line bg-surface px-3 py-2 text-xs font-medium text-ink-2 transition-colors hover:bg-sand hover:text-ink outline-none focus-visible:ring-2 focus-visible:ring-brand"
+        >
+          <LogOut size={14} />
+          Sign out
+        </button>
       </div>
     </aside>
   );

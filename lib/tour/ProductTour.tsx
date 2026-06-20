@@ -72,6 +72,9 @@ export default function ProductTour() {
     } catch {
       /* noop */
     }
+    window.dispatchEvent(
+      new CustomEvent("cliniqops:tour-paused", { detail: { step: stepIndex } }),
+    );
   }, [stepIndex]);
 
   const completeTour = useCallback((): void => {
@@ -84,6 +87,7 @@ export default function ProductTour() {
     } catch {
       /* noop */
     }
+    window.dispatchEvent(new CustomEvent("cliniqops:tour-completed"));
   }, []);
 
   const startTour = useCallback((resumeStep?: number): void => {
@@ -92,9 +96,15 @@ export default function ProductTour() {
     } catch {
       /* noop */
     }
-    setStepIndex(resumeStep ?? 0);
+    const targetIndex = resumeStep ?? 0;
+    const targetStep = TOUR_STEPS[targetIndex];
+    setStepIndex(targetIndex);
     setIsActive(true);
-  }, []);
+    window.dispatchEvent(new CustomEvent("cliniqops:tour-started"));
+    if (targetStep && pathname !== targetStep.routePath) {
+      router.push(targetStep.routePath);
+    }
+  }, [pathname, router]);
 
   useEffect(() => {
     if (startedRef.current) return;
