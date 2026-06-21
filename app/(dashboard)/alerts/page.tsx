@@ -28,6 +28,7 @@ export default async function AlertsPage() {
     severity: a.severity,
     weekOf: a.weekOf.toISOString(),
     isRead: a.isRead,
+    mlDetected: a.mlDetected,
     trend: trends[i],
   }));
 

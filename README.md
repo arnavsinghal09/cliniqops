@@ -6,7 +6,7 @@ CliniqOps is a full-stack clinic operations platform that combines revenue analy
 
 ## Table of Contents
 
-1. [What it does](#what-it-does)
+1. [What it does](#wclhat-it-does)
 2. [Tech stack](#tech-stack)
 3. [Repository layout](#repository-layout)
 4. [Environment variables](#environment-variables)
@@ -744,3 +744,78 @@ The seed creates a single demo clinic:
 | Role | `ADMIN` |
 
 Defined in `lib/demo/credentials.ts` and used by `DemoLoginButton` for the landing page one-click login.
+
+---
+
+## ML Anomaly Detection
+
+CliniqOps ships an optional Python ML sidecar (`ml/`) that augments the statistical anomaly detector with a trained classifier. The Next.js cron job calls the sidecar on each weekly run; if the sidecar is unreachable the app falls back transparently to the existing statistical path.
+
+### Model
+
+Training uses the [Kaggle Medical Appointment No-Shows](https://www.kaggle.com/datasets/joniarroba/noshowappointments) dataset (110,527 rows, Brazilian public clinics). The pipeline in `ml/train.py`:
+
+1. Aggregates appointments by **neighbourhood × ISO week** (`ml/features.py`) to produce ~471 rows with features: `no_show_rate`, `sms_sent_rate`, `avg_lead_time_days`, `week_of_year`, `rolling_mean_4w` (computed per neighbourhood).
+2. Labels anomalous rows **unsupervised** with `IsolationForest(contamination=0.1)` → 47 anomalies / 424 normal.
+3. Trains a **LightGBM** classifier (`LGBMClassifier`) on those labels with an 80/20 stratified split (falls back to `GradientBoostingClassifier` if LightGBM is unavailable).
+4. Exports `ml/model/anomaly_model.pkl`, `scaler.pkl`, and `feature_names.json`.
+
+**Why per-neighbourhood aggregation:** the dataset's appointment dates span only ~6 weeks, so global weekly aggregation yields ~6 rows — too few to train on. Treating each neighbourhood as a clinic tenant produces ~480 rows and mirrors CliniqOps's per-clinic detection exactly.
+
+### Benchmark results
+
+Evaluation is in `ml/benchmark.py`. The primary benchmark uses **synthetic anomaly injection** — constructing a 600-sample test set (300 normal resampled from real data, 300 anomalous with known perturbations: `no_show_rate` +3–5σ, `avg_lead_time_days` +3σ, `rolling_mean_4w` +3σ) — so ground-truth labels are known by construction, not circular.
+
+**Ground-truth metrics (synthetic injection):**
+
+| metric | value |
+|--------|-------|
+| Precision | 0.920 |
+| Recall | 0.997 |
+| F1 | 0.957 |
+| ROC-AUC | 0.954 |
+
+**Head-to-head vs. statistical baseline** (same 600-sample test set; statistical method replicates the median + deviation thresholds from `lib/anomaly-detection.ts`):
+
+| metric | ML | Statistical |
+|--------|----|-------------|
+| Precision | **0.920** | 0.588 |
+| Recall | **0.997** | 1.000 |
+| F1 | **0.957** | 0.741 |
+| FPR | **0.087** | 0.700 |
+
+The statistical method achieves near-perfect recall only by flagging 70% of normal weeks as anomalies (FPR 0.700 — 8× more false positives than ML), making it unsuitable as a sole alerting mechanism. ML's operating point is strictly better for a product where alert fatigue matters.
+
+**Consistency check (5-fold CV against IsolationForest labels):** F1-macro 0.837 ± 0.061, AUC 0.985 ± 0.010. This measures fit to the IF labels used for training — it is *not* a measure of real detection skill, only a stability/overfitting check.
+
+**Latency:** p50 2.82 ms / p99 3.43 ms at ~348 req/s — well inside the 2-second `AbortController` timeout in `callMLService()`.
+
+### Running the sidecar locally
+
+```bash
+cd ml
+source .venv/bin/activate
+uvicorn serve:app --reload        # serves on http://localhost:8000
+```
+
+Set `ML_SERVICE_URL=http://localhost:8000` in `.env` (already the default).
+
+Retrain at any time:
+
+```bash
+python train.py
+```
+
+### Docker
+
+```bash
+cd ml
+docker build -t cliniqops-ml .
+docker run -p 8000:8000 cliniqops-ml
+```
+
+The image uses `python:3.11-slim` and installs only `ml/requirements.txt`.
+
+### Graceful fallback
+
+`callMLService()` in `lib/anomaly-detection.ts` wraps every request in a 2-second `AbortController` timeout. Any network error, timeout, or non-200 response returns `null`, and `detectAnomaliesForClinic` falls back to the median-based `severityFor()` function. The cron route interface is unchanged — alerts are created either way. Alerts sourced from the ML service are tagged `mlDetected: true` and shown with a **ML-detected** chip on the alerts page.

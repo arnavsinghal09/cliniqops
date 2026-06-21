@@ -1,6 +1,21 @@
-import { startOfWeek } from "date-fns";
+import { startOfWeek, getISOWeek } from "date-fns";
 import prisma from "./prisma";
 import { Prisma } from "@/lib/generated/prisma/client";
+
+// ── ML sidecar types ──────────────────────────────────────────────────────────
+export type MLFeatures = {
+  no_show_rate: number;
+  sms_sent_rate: number;
+  avg_lead_time_days: number;
+  week_of_year: number;
+  rolling_mean_4w: number;
+};
+
+export type MLPrediction = {
+  is_anomaly: boolean;
+  anomaly_score: number;
+  severity: "LOW" | "MEDIUM" | "HIGH" | null;
+};
 
 export type MetricKey =
   | "noShowRate"
@@ -66,6 +81,29 @@ async function weeklyValues(
   return rows.map((r) => Number(r.value ?? 0));
 }
 
+async function callMLService(
+  features: MLFeatures,
+): Promise<MLPrediction | null> {
+  const base =
+    process.env.ML_SERVICE_URL ?? "http://localhost:8000";
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 2000);
+  try {
+    const res = await fetch(`${base}/predict`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(features),
+      signal: controller.signal,
+    });
+    if (!res.ok) return null;
+    return (await res.json()) as MLPrediction;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /** Returns the count of HIGH-severity alerts created/updated this run. */
 export async function detectAnomaliesForClinic(
   clinicId: string,
@@ -86,7 +124,27 @@ export async function detectAnomaliesForClinic(
     const deviationPercent =
       ((currentValue - baselineValue) / baselineValue) * 100;
 
-    const severity = severityFor(deviationPercent);
+    // ── ML path (non-blocking; falls back to statistical on any failure) ──
+    const noShowValues = await weeklyValues(clinicId, "noShowRate");
+    const rollingSlice = noShowValues.slice(-5, -1); // 4 weeks before current
+    const rolling_mean_4w =
+      rollingSlice.length > 0
+        ? rollingSlice.reduce((a, b) => a + b, 0) / rollingSlice.length
+        : noShowValues[noShowValues.length - 1] ?? 0;
+
+    const mlFeatures: MLFeatures = {
+      no_show_rate: noShowValues[noShowValues.length - 1] ?? 0,
+      sms_sent_rate: 0, // not available in Prisma aggregates; ML model handles 0
+      avg_lead_time_days: 0, // same — no lead-time column in Appointment yet
+      week_of_year: getISOWeek(weekOf),
+      rolling_mean_4w,
+    };
+
+    const mlPrediction = await callMLService(mlFeatures);
+    const mlDetected = mlPrediction?.severity != null;
+    const severity: Severity | null =
+      mlPrediction?.severity ?? severityFor(deviationPercent);
+
     if (!severity) continue;
 
     await prisma.alert.upsert({
@@ -102,12 +160,14 @@ export async function detectAnomaliesForClinic(
         deviationPercent,
         severity,
         weekOf,
+        mlDetected,
       },
       update: {
         currentValue,
         baselineValue,
         deviationPercent,
         severity,
+        mlDetected,
         // isRead deliberately left untouched on re-runs
       },
     });

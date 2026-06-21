@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { markAllAlertsRead } from "./actions";
 import {
   AlertTriangle,
+  BrainCircuit,
   TrendingUp,
   TrendingDown,
   ChevronRight,
@@ -28,6 +29,7 @@ export type AlertRow = {
   severity: string;
   weekOf: string;
   isRead: boolean;
+  mlDetected: boolean;
   trend: number[];
 };
 
@@ -282,6 +284,27 @@ export default function AlertsList({ alerts }: { alerts: AlertRow[] }) {
                     <AlertTriangle size={10} strokeWidth={2.4} />
                     {sev.label}
                   </span>
+                  {a.mlDetected && (
+                    <span
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 3,
+                        background: "#EEF0FA",
+                        color: "#3D52A0",
+                        fontSize: 9.5,
+                        fontWeight: 700,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.06em",
+                        padding: "2px 6px",
+                        borderRadius: 4,
+                        flexShrink: 0,
+                      }}
+                    >
+                      <BrainCircuit size={10} strokeWidth={2.4} />
+                      ML-detected
+                    </span>
+                  )}
                 </div>
                 <p style={{ fontSize: 11.5, color: C.ink3, margin: "3px 0 0" }}>
                   Week of {format(new Date(a.weekOf), "dd MMM yyyy")}

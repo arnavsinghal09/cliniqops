@@ -1,0 +1,78 @@
+{
+  "grain": "week",
+  "benchmark_1_synthetic_injection": {
+    "n_normal": 300,
+    "n_anomaly": 300,
+    "precision": 0.92,
+    "recall": 0.9967,
+    "f1": 0.9568,
+    "roc_auc": 0.9542,
+    "confusion_matrix": [
+      [
+        274,
+        26
+      ],
+      [
+        1,
+        299
+      ]
+    ]
+  },
+  "benchmark_2_baseline_comparison": {
+    "agreement_rate": 0.685,
+    "both_flagged": 323,
+    "ml_only_flagged": 2,
+    "stat_only_flagged": 187,
+    "ml": {
+      "precision": 0.92,
+      "recall": 0.9967,
+      "f1": 0.9568,
+      "roc_auc": 0.9542,
+      "false_positive_rate": 0.0867
+    },
+    "statistical": {
+      "precision": 0.5882,
+      "recall": 1.0,
+      "f1": 0.7407,
+      "roc_auc": 0.9943,
+      "false_positive_rate": 0.7
+    },
+    "verdicts": [
+      "Precision: ML WINS  (ML=0.920 > Stat=0.588)",
+      "Recall: TIE  (ML=0.997, Stat=1.000)",
+      "F1: ML WINS  (ML=0.957 > Stat=0.741)",
+      "FPR: ML WINS  (ML=0.087 > Stat=0.700)"
+    ]
+  },
+  "benchmark_3_latency": {
+    "n_requests": 1000,
+    "total_s": 2.877,
+    "rps": 347.6,
+    "p50_ms": 2.82,
+    "p95_ms": 3.19,
+    "p99_ms": 3.43,
+    "skipped": false
+  },
+  "cross_validation": {
+    "note": "Circular \u2014 labels from IsolationForest; measures label-fit only",
+    "n_folds": 5,
+    "f1_per_fold": [
+      0.7467,
+      0.9122,
+      0.8383,
+      0.8913,
+      0.7951
+    ],
+    "f1_mean": 0.8367,
+    "f1_std": 0.0609,
+    "auc_per_fold": [
+      0.9682,
+      0.9976,
+      0.9882,
+      0.9908,
+      0.9817
+    ],
+    "auc_mean": 0.9853,
+    "auc_std": 0.01
+  }
+}

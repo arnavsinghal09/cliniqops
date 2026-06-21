@@ -197,6 +197,7 @@ model Alert {
   severity         AlertSeverity
   weekOf           DateTime
   isRead           Boolean       @default(false)
+  mlDetected       Boolean       @default(false)
   createdAt        DateTime      @default(now())
 
   @@unique([clinicId, metric, weekOf])

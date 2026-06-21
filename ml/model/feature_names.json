@@ -1,0 +1,7 @@
+[
+  "no_show_rate",
+  "sms_sent_rate",
+  "avg_lead_time_days",
+  "week_of_year",
+  "rolling_mean_4w"
+]
