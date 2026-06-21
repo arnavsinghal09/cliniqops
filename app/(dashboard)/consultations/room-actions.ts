@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
 import { generateSoapFromTranscript } from "@/lib/soap";
+import { suggestCptFromSoap } from "@/lib/cpt";
 
 export type CreateRoomInput = {
   patientName: string;
@@ -283,6 +284,158 @@ export async function getRoomForDoctor(roomId: string) {
   }
 
   return room;
+}
+
+// ── CPT Code write-back ───────────────────────────────────────────────────────
+
+type CptResult = { ok: true } | { ok: false; error: string };
+
+/** Load the approved SOAP note, ask Gemini for CPT suggestions, upsert rows.
+ *  Idempotent: clears prior AI-SUGGESTED (not APPROVED) rows on each call. */
+export async function suggestCptCodes(
+  soapNoteId: string,
+): Promise<{ ok: true; count: number } | { ok: false; error: string }> {
+  const session = await auth();
+  if (!session) return { ok: false, error: "Unauthorized" };
+
+  const note = await prisma.soapNote.findUnique({ where: { id: soapNoteId } });
+  if (!note || note.clinicId !== session.user.clinicId) {
+    return { ok: false, error: "Note not found." };
+  }
+  if (!note.approvedAt) {
+    return { ok: false, error: "SOAP note must be approved before suggesting CPT codes." };
+  }
+
+  let suggestions;
+  try {
+    suggestions = await suggestCptFromSoap({
+      subjective: note.subjective,
+      objective: note.objective,
+      assessment: note.assessment,
+      plan: note.plan,
+    });
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Suggestion failed." };
+  }
+
+  // Clear prior AI-generated suggestions (idempotent re-run); leave APPROVED rows alone.
+  await prisma.cptCode.deleteMany({
+    where: { soapNoteId, source: "AI", status: "SUGGESTED" },
+  });
+
+  if (suggestions.length > 0) {
+    await prisma.cptCode.createMany({
+      data: suggestions.map((s) => ({
+        soapNoteId,
+        code: s.code,
+        description: s.description,
+        status: "SUGGESTED",
+        source: "AI",
+        confidence: s.confidence,
+        rationale: s.rationale,
+      })),
+    });
+  }
+
+  revalidatePath("/consultations");
+  return { ok: true, count: suggestions.length };
+}
+
+export async function approveCptCode(id: string): Promise<CptResult> {
+  const session = await auth();
+  if (!session) return { ok: false, error: "Unauthorized" };
+
+  const row = await prisma.cptCode.findUnique({
+    where: { id },
+    include: { soapNote: { select: { clinicId: true } } },
+  });
+  if (!row || row.soapNote.clinicId !== session.user.clinicId) {
+    return { ok: false, error: "Not found." };
+  }
+
+  await prisma.cptCode.update({ where: { id }, data: { status: "APPROVED" } });
+  revalidatePath("/consultations");
+  return { ok: true };
+}
+
+export async function rejectCptCode(id: string): Promise<CptResult> {
+  const session = await auth();
+  if (!session) return { ok: false, error: "Unauthorized" };
+
+  const row = await prisma.cptCode.findUnique({
+    where: { id },
+    include: { soapNote: { select: { clinicId: true } } },
+  });
+  if (!row || row.soapNote.clinicId !== session.user.clinicId) {
+    return { ok: false, error: "Not found." };
+  }
+
+  await prisma.cptCode.update({ where: { id }, data: { status: "REJECTED" } });
+  revalidatePath("/consultations");
+  return { ok: true };
+}
+
+export async function addManualCptCode(
+  soapNoteId: string,
+  code: string,
+  description: string,
+): Promise<CptResult> {
+  const session = await auth();
+  if (!session) return { ok: false, error: "Unauthorized" };
+
+  const note = await prisma.soapNote.findUnique({ where: { id: soapNoteId } });
+  if (!note || note.clinicId !== session.user.clinicId) {
+    return { ok: false, error: "Note not found." };
+  }
+
+  const clean = code.trim().toUpperCase();
+  if (!/^\d{4,5}[A-Z0-9]?$/.test(clean)) {
+    return { ok: false, error: `"${code}" is not a valid CPT code.` };
+  }
+
+  await prisma.cptCode.create({
+    data: {
+      soapNoteId,
+      code: clean,
+      description: description.trim(),
+      status: "APPROVED",
+      source: "MANUAL",
+    },
+  });
+
+  revalidatePath("/consultations");
+  return { ok: true };
+}
+
+export async function updateCptCode(
+  id: string,
+  fields: { code?: string; description?: string; rationale?: string },
+): Promise<CptResult> {
+  const session = await auth();
+  if (!session) return { ok: false, error: "Unauthorized" };
+
+  const row = await prisma.cptCode.findUnique({
+    where: { id },
+    include: { soapNote: { select: { clinicId: true } } },
+  });
+  if (!row || row.soapNote.clinicId !== session.user.clinicId) {
+    return { ok: false, error: "Not found." };
+  }
+
+  const data: { code?: string; description?: string; rationale?: string } = {};
+  if (fields.code !== undefined) {
+    const clean = fields.code.trim().toUpperCase();
+    if (!/^\d{4,5}[A-Z0-9]?$/.test(clean)) {
+      return { ok: false, error: `"${fields.code}" is not a valid CPT code.` };
+    }
+    data.code = clean;
+  }
+  if (fields.description !== undefined) data.description = fields.description.trim();
+  if (fields.rationale !== undefined) data.rationale = fields.rationale.trim();
+
+  await prisma.cptCode.update({ where: { id }, data });
+  revalidatePath("/consultations");
+  return { ok: true };
 }
 
 export async function saveScribeTranscript(

@@ -9,6 +9,7 @@ import {
   approveSoapNote,
 } from "./room-actions";
 import type { PastConsultation, SoapData } from "./ConsultationsClient";
+import CptCodingPanel from "./CptCodingPanel";
 
 const C = {
   surface: "#FBFAF7",
@@ -481,6 +482,14 @@ export default function SoapEditor({
                 consultation link.
               </span>
             </div>
+          )}
+
+          {/* CPT coding panel — only available after note is approved */}
+          {published && (
+            <CptCodingPanel
+              soapNoteId={soap.id}
+              initialCodes={soap.cptCodes}
+            />
           )}
         </>
       )}

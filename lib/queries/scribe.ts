@@ -38,7 +38,11 @@ export async function getPastRoomsForDoctor(clinicId: string, doctorId: string) 
     orderBy: { endedAt: "desc" },
     take: 30,
     include: {
-      scribeSession: { include: { soapNote: true } },
+      scribeSession: {
+        include: {
+          soapNote: { include: { cptCodes: { orderBy: { createdAt: "asc" } } } },
+        },
+      },
     },
   });
 }

@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { createClient, type RealtimeChannel } from "@supabase/supabase-js";
+import { type SupabaseClient, type RealtimeChannel } from "@supabase/supabase-js";
+import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import {
   Mic,
   MicOff,
@@ -13,6 +14,7 @@ import {
   Radio,
 } from "lucide-react";
 import { getScribeToken } from "./token-action";
+import { getIceServers } from "@/app/consultation/ice-action";
 import {
   getRoomForDoctor,
   startConsultation,
@@ -37,13 +39,6 @@ const C = {
   ok: "#4E6B4F",
   okBg: "#ECF0EA",
 } as const;
-
-const STUN = {
-  iceServers: [
-    { urls: "stun:stun.l.google.com:19302" },
-    { urls: "stun:stun1.l.google.com:19302" },
-  ],
-};
 
 type Mode = "standalone" | "telehealth";
 
@@ -139,7 +134,7 @@ export default function ActiveSessionPanel({
   const processorRef = useRef<ScriptProcessorNode | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const initializingRoomRef = useRef<string | null>(null);
-  const supabaseRef = useRef<ReturnType<typeof createClient> | null>(null);
+  const supabaseRef = useRef<SupabaseClient | null>(null);
 
   // Auto-scroll transcript.
   useEffect(() => {
@@ -169,7 +164,6 @@ export default function ActiveSessionPanel({
   useEffect(() => {
     if (remoteVideoRef.current && remoteStream) {
       remoteVideoRef.current.srcObject = remoteStream;
-      console.log("[DR] attached remote stream to video element ✓");
     }
   }, [remoteStream, remoteJoined, mode]);
 
@@ -312,15 +306,10 @@ export default function ActiveSessionPanel({
 
   async function initiateTelehealth(roomId: string) {
     if (initializingRoomRef.current === roomId) {
-      console.log(
-        "[DR] initiateTelehealth SKIPPED — already initializing",
-        roomId,
-      );
       return;
     }
     initializingRoomRef.current = roomId;
 
-    console.log("[DR] initiateTelehealth start, roomId:", roomId);
     setMode("telehealth");
     setActiveRoomId(roomId);
     setError(null);
@@ -328,9 +317,7 @@ export default function ActiveSessionPanel({
     let room: Awaited<ReturnType<typeof getRoomForDoctor>>;
     try {
       room = await getRoomForDoctor(roomId);
-      console.log("[DR] room loaded, roomToken:", room.roomToken);
     } catch (e) {
-      console.log("[DR] getRoomForDoctor FAILED:", e);
       setError("Couldn't load the room.");
       return;
     }
@@ -341,9 +328,7 @@ export default function ActiveSessionPanel({
         video: true,
         audio: true,
       });
-      console.log("[DR] got local media");
     } catch (e) {
-      console.log("[DR] getUserMedia FAILED:", e);
       setError(
         "Camera and microphone access are required. Please allow permissions in your browser settings.",
       );
@@ -352,32 +337,51 @@ export default function ActiveSessionPanel({
     localStreamRef.current = localStream;
     if (localVideoRef.current) localVideoRef.current.srcObject = localStream;
 
-    const pc = new RTCPeerConnection(STUN);
+    const iceServers = await getIceServers();
+    const pc = new RTCPeerConnection({ iceServers });
     pcRef.current = pc;
+    // Candidates received before setRemoteDescription must be buffered and drained after.
+    const pendingCandidates: RTCIceCandidateInit[] = [];
+    const drainCandidates = async () => {
+      const toApply = pendingCandidates.splice(0);
+      if (toApply.length)
+      for (const c of toApply) {
+        try {
+          await pc.addIceCandidate(new RTCIceCandidate(c));
+        } catch (e) {
+        }
+      }
+    };
     localStream.getTracks().forEach((t) => pc.addTrack(t, localStream));
 
     pc.ontrack = (event) => {
-      console.log("[DR] ontrack — remote stream received ✓");
       setRemoteJoined(true);
       setRemoteStream(event.streams[0]);
     };
     pc.onconnectionstatechange = () => {
-      console.log("[DR] connectionState:", pc.connectionState);
     };
-    pc.oniceconnectionstatechange = () => {
-      console.log("[DR] iceConnectionState:", pc.iceConnectionState);
+    pc.oniceconnectionstatechange = async () => {
+      const s = pc.iceConnectionState;
+      if (s === "failed" && pcRef.current && channelRef.current) {
+        try {
+          const offer = await pcRef.current.createOffer({ iceRestart: true });
+          await pcRef.current.setLocalDescription(offer);
+          channelRef.current.send({
+            type: "broadcast",
+            event: "signal",
+            payload: { type: "offer", sdp: offer },
+          });
+        } catch (e) {
+        }
+      }
     };
 
     if (!supabaseRef.current) {
-      supabaseRef.current = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
-      );
+      supabaseRef.current = getSupabaseBrowserClient();
     }
     const supabase = supabaseRef.current;
 
     const channelName = `consultation:${room.roomToken}`;
-    console.log("[DR] joining channel:", channelName);
     const channel = supabase.channel(channelName, {
       config: { broadcast: { self: false } },
     });
@@ -394,14 +398,12 @@ export default function ActiveSessionPanel({
           },
         });
       } else {
-        console.log("[DR] ICE gathering complete");
       }
     };
 
-    const sendOffer = async () => {
-      const offer = await pc.createOffer();
+    const sendOffer = async (options?: RTCOfferOptions) => {
+      const offer = await pc.createOffer(options);
       await pc.setLocalDescription(offer);
-      console.log("[DR] sending offer");
       channel.send({
         type: "broadcast",
         event: "signal",
@@ -410,20 +412,21 @@ export default function ActiveSessionPanel({
     };
 
     channel.on("broadcast", { event: "signal" }, async ({ payload }) => {
-      console.log("[DR] received signal:", payload.type);
       if (payload.type === "answer") {
         if (pc.signalingState !== "stable") {
           await pc.setRemoteDescription(new RTCSessionDescription(payload.sdp));
-          console.log("[DR] set remote answer ✓");
+          await drainCandidates();
         }
       } else if (payload.type === "ice-candidate") {
-        try {
-          await pc.addIceCandidate(new RTCIceCandidate(payload.candidate));
-        } catch (e) {
-          console.log("[DR] ICE add failed", e);
+        if (!pc.remoteDescription) {
+          pendingCandidates.push(payload.candidate as RTCIceCandidateInit);
+        } else {
+          try {
+            await pc.addIceCandidate(new RTCIceCandidate(payload.candidate));
+          } catch (e) {
+          }
         }
       } else if (payload.type === "patient-joined") {
-        console.log("[DR] patient-joined received ✓ — sending offer now");
         setRemoteJoined(true);
         await sendOffer();
       } else if (payload.type === "patient-left") {
@@ -432,15 +435,10 @@ export default function ActiveSessionPanel({
     });
 
     channel.subscribe(async (status) => {
-      console.log("[DR] channel status:", status);
       if (status === "SUBSCRIBED") {
         try {
           await startConsultation(roomId);
-          console.log(
-            "[DR] startConsultation done — room is ACTIVE, waiting for patient",
-          );
         } catch (e) {
-          console.log("[DR] startConsultation failed:", e);
         }
       }
     });
@@ -583,15 +581,6 @@ export default function ActiveSessionPanel({
         <div ref={transcriptEndRef} />
       </div>
     </div>
-  );
-
-  console.log(
-    "[DR] render — mode:",
-    mode,
-    "remoteStream:",
-    !!remoteStream,
-    "activeRoomId:",
-    activeRoomId,
   );
 
   return (

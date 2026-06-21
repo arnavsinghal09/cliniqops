@@ -75,10 +75,12 @@ const labelStyle: React.CSSProperties = {
 export default function RoomManagementPanel({
   rooms,
   patients,
+  selectedRoomId,
   onJoinRoom,
 }: {
   rooms: RoomSummary[];
   patients: PatientOption[];
+  selectedRoomId: string | null;
   onJoinRoom: (roomId: string) => void;
 }) {
   const searchParams = useSearchParams();
@@ -98,6 +100,7 @@ export default function RoomManagementPanel({
   const editInputRef = useRef<HTMLInputElement>(null);
   const [localRooms, setLocalRooms] = useState<RoomSummary[]>(rooms);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setLocalRooms(rooms); }, [rooms]);
 
   const submit = (e: React.FormEvent<HTMLFormElement>) => {
@@ -461,8 +464,11 @@ export default function RoomManagementPanel({
             const isCopied = copiedIds.has(room.id);
             const isCancelling = room.id.startsWith("temp-");
             const isConfirmingCancel = confirmCancelId === room.id;
-            const leftBorderColor =
-              room.status === "ACTIVE"
+            const isThisCallActive = room.id === selectedRoomId;
+            const isAnyCallActive = selectedRoomId !== null;
+            const leftBorderColor = isThisCallActive
+              ? C.ok
+              : room.status === "ACTIVE"
                 ? C.danger
                 : room.status === "WAITING"
                   ? C.warning
@@ -573,32 +579,55 @@ export default function RoomManagementPanel({
                     </button>
                   )}
 
-                  {/* Join call */}
+                  {/* Join call / In call indicator */}
                   {joinable && (
-                    <button
-                      type="button"
-                      onClick={() => onJoinRoom(room.id)}
-                      style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: 6,
-                        background: C.accent,
-                        color: C.surface,
-                        border: "none",
-                        borderRadius: 6,
-                        padding: "7px 13px",
-                        fontSize: 13,
-                        fontWeight: 600,
-                        cursor: "pointer",
-                      }}
-                    >
-                      <Video size={13} strokeWidth={2.2} />
-                      Join
-                    </button>
+                    isThisCallActive ? (
+                      <span
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 6,
+                          background: C.okBg,
+                          color: C.ok,
+                          border: `1px solid ${C.ok}`,
+                          borderRadius: 6,
+                          padding: "7px 13px",
+                          fontSize: 13,
+                          fontWeight: 600,
+                        }}
+                      >
+                        <Video size={13} strokeWidth={2.2} />
+                        In call
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => onJoinRoom(room.id)}
+                        disabled={isAnyCallActive}
+                        title={isAnyCallActive ? "Finish your current call first" : undefined}
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 6,
+                          background: C.accent,
+                          color: C.surface,
+                          border: "none",
+                          borderRadius: 6,
+                          padding: "7px 13px",
+                          fontSize: 13,
+                          fontWeight: 600,
+                          cursor: isAnyCallActive ? "not-allowed" : "pointer",
+                          opacity: isAnyCallActive ? 0.4 : 1,
+                        }}
+                      >
+                        <Video size={13} strokeWidth={2.2} />
+                        Join
+                      </button>
+                    )
                   )}
 
-                  {/* Cancel room */}
-                  {cancellable && (
+                  {/* Cancel room — hidden while actively in this call */}
+                  {cancellable && !isThisCallActive && (
                     <button
                       type="button"
                       title={isConfirmingCancel ? "Click again to confirm" : "Cancel room"}

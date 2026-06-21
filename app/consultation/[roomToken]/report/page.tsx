@@ -79,7 +79,18 @@ export default async function PatientReportPage({
     include: {
       doctor: { select: { email: true, name: true } },
       clinic: { select: { name: true } },
-      scribeSession: { include: { soapNote: true } },
+      scribeSession: {
+        include: {
+          soapNote: {
+            include: {
+              cptCodes: {
+                where: { status: "APPROVED" },
+                orderBy: { createdAt: "asc" },
+              },
+            },
+          },
+        },
+      },
     },
   });
 
@@ -351,6 +362,39 @@ export default async function PatientReportPage({
                   </li>
                 ))}
               </ul>
+            </Section>
+          )}
+
+          {soap.cptCodes.length > 0 && (
+            <Section eyebrow="PROCEDURE CODES" title="Billing codes for this visit">
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {soap.cptCodes.map((c) => (
+                  <div
+                    key={c.id}
+                    style={{
+                      display: "flex",
+                      alignItems: "baseline",
+                      gap: 10,
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: 13,
+                        fontWeight: 700,
+                        color: C.ink,
+                        fontVariantNumeric: "tabular-nums",
+                        flexShrink: 0,
+                        minWidth: 52,
+                      }}
+                    >
+                      {c.code}
+                    </span>
+                    <span style={{ fontSize: 13, color: C.ink2 }}>
+                      {c.description}
+                    </span>
+                  </div>
+                ))}
+              </div>
             </Section>
           )}
         </div>

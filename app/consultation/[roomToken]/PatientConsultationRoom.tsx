@@ -2,8 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { createClient, type RealtimeChannel } from "@supabase/supabase-js";
+import { type RealtimeChannel } from "@supabase/supabase-js";
+import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { Mic, MicOff, Video, VideoOff, PhoneOff } from "lucide-react";
+import { getIceServers } from "@/app/consultation/ice-action";
 
 type RoomStatus = "WAITING" | "ACTIVE" | "COMPLETED" | "CANCELLED";
 
@@ -24,13 +26,6 @@ const C = {
   okBg: "#ECF0EA",
 };
 
-const STUN = {
-  iceServers: [
-    { urls: "stun:stun.l.google.com:19302" },
-    { urls: "stun:stun1.l.google.com:19302" },
-  ],
-};
-
 type CallStatus = "waiting" | "connecting" | "connected" | "ended";
 
 export default function PatientConsultationRoom({
@@ -49,6 +44,8 @@ export default function PatientConsultationRoom({
   const [callStatus, setCallStatus] = useState<CallStatus>(
     initialStatus === "COMPLETED" ? "ended" : "waiting",
   );
+  // "normal" = doctor ended / patient left intentionally; "dropped" = connection failed unexpectedly.
+  const [callEndReason, setCallEndReason] = useState<"normal" | "dropped">("normal");
 
   const [reportReady, setReportReady] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
@@ -66,7 +63,6 @@ export default function PatientConsultationRoom({
   const joinedRef = useRef(false);
 
   async function joinCall() {
-    console.log("[PT] joinCall start");
     setCallStatus("connecting");
     setError(null);
 
@@ -78,9 +74,7 @@ export default function PatientConsultationRoom({
           audio: true,
         });
         localStreamRef.current = localStream;
-        console.log("[PT] got local media");
       } catch (e) {
-        console.log("[PT] getUserMedia FAILED:", e);
         setError("Camera and microphone access are required to join.");
         setCallStatus("waiting");
         joinedRef.current = false;
@@ -89,41 +83,54 @@ export default function PatientConsultationRoom({
     }
     if (localVideoRef.current) localVideoRef.current.srcObject = localStream;
 
-    const pc = new RTCPeerConnection(STUN);
+    const iceServers = await getIceServers();
+    const pc = new RTCPeerConnection({ iceServers });
     pcRef.current = pc;
+    // Candidates received before setRemoteDescription must be buffered and drained after.
+    const pendingCandidates: RTCIceCandidateInit[] = [];
+    const drainCandidates = async () => {
+      const toApply = pendingCandidates.splice(0);
+      if (toApply.length)
+      for (const c of toApply) {
+        try {
+          await pc.addIceCandidate(new RTCIceCandidate(c));
+        } catch (e) {
+        }
+      }
+    };
     localStream.getTracks().forEach((t) => pc.addTrack(t, localStream!));
 
     pc.ontrack = (event) => {
-      console.log("[PT] ontrack — remote stream received ✓");
       setRemoteStream(event.streams[0]);
     };
 
     pc.onconnectionstatechange = () => {
-      console.log("[PT] connectionState:", pc.connectionState);
-      if (pc.connectionState === "connected") setCallStatus("connected");
-      if (
-        pc.connectionState === "disconnected" ||
-        pc.connectionState === "failed"
-      )
+      const s = pc.connectionState;
+      if (s === "connected") {
+        setCallStatus("connected");
+        setError(null);
+      }
+      // "disconnected" is transient (network hiccup) — only end on "failed"
+      if (s === "failed") {
+        setCallEndReason("dropped");
         setCallStatus("ended");
+      }
     };
     pc.oniceconnectionstatechange = () => {
-      console.log("[PT] iceConnectionState:", pc.iceConnectionState);
+      const s = pc.iceConnectionState;
+      if (s === "failed") {
+        setTimeout(() => {
+          if (pc.iceConnectionState === "failed") {
+            setCallEndReason("dropped");
+            setCallStatus("ended");
+          }
+        }, 10000);
+      }
     };
 
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
-    );
-    console.log(
-      "[PT] supabase url present:",
-      !!process.env.NEXT_PUBLIC_SUPABASE_URL,
-      "key present:",
-      !!process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
-    );
+    const supabase = getSupabaseBrowserClient();
 
     const channelName = `consultation:${roomToken}`;
-    console.log("[PT] joining channel:", channelName);
     const channel = supabase.channel(channelName, {
       config: { broadcast: { self: false } },
     });
@@ -131,7 +138,6 @@ export default function PatientConsultationRoom({
 
     pc.onicecandidate = (event) => {
       if (event.candidate) {
-        console.log("[PT] sending ICE candidate");
         channel.send({
           type: "broadcast",
           event: "signal",
@@ -141,35 +147,34 @@ export default function PatientConsultationRoom({
           },
         });
       } else {
-        console.log("[PT] ICE gathering complete");
       }
     };
 
     channel.on("broadcast", { event: "signal" }, async ({ payload }) => {
-      console.log("[PT] received signal:", payload.type);
       if (payload.type === "offer") {
         await pc.setRemoteDescription(new RTCSessionDescription(payload.sdp));
+        await drainCandidates();
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
-        console.log("[PT] sending answer");
         channel.send({
           type: "broadcast",
           event: "signal",
           payload: { type: "answer", sdp: answer },
         });
       } else if (payload.type === "ice-candidate") {
-        try {
-          await pc.addIceCandidate(new RTCIceCandidate(payload.candidate));
-        } catch (e) {
-          console.log("[PT] ICE add failed", e);
+        if (!pc.remoteDescription) {
+          pendingCandidates.push(payload.candidate as RTCIceCandidateInit);
+        } else {
+          try {
+            await pc.addIceCandidate(new RTCIceCandidate(payload.candidate));
+          } catch (e) {
+          }
         }
       }
     });
 
     channel.subscribe((status) => {
-      console.log("[PT] channel status:", status);
       if (status === "SUBSCRIBED") {
-        console.log("[PT] sending patient-joined");
         channel.send({
           type: "broadcast",
           event: "signal",
@@ -182,26 +187,23 @@ export default function PatientConsultationRoom({
   // Poll room status while waiting; when ACTIVE, join.
   useEffect(() => {
     if (callStatus !== "waiting") return;
-    console.log("[PT] polling started for room:", roomToken);
     const interval = setInterval(async () => {
       try {
         const res = await fetch(`/api/consultation/${roomToken}`);
         const data = await res.json();
-        console.log("[PT] poll — room status:", data.status);
         if (data.status === "ACTIVE" && !joinedRef.current) {
           joinedRef.current = true;
           clearInterval(interval);
-          console.log("[PT] room ACTIVE → joining call");
           void joinCall();
         }
         if (data.status === "COMPLETED") {
           clearInterval(interval);
+          setCallEndReason("normal");
           setCallStatus("ended");
         }
       } catch (e) {
-        console.log("[PT] poll error:", e);
       }
-    }, 5000);
+    }, 2000);
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [callStatus, roomToken]);
@@ -213,16 +215,26 @@ export default function PatientConsultationRoom({
       try {
         const res = await fetch(`/api/consultation/${roomToken}`);
         const data = await res.json();
-        if (active) setReportReady(!!data.hasSoapNote);
+        if (!active) return;
+        setReportReady(!!data.hasSoapNote);
+        // If a dropped call was actually followed by doctor completing the session,
+        // promote the reason to "normal" so the patient sees the right screen.
+        if (data.status === "COMPLETED") setCallEndReason("normal");
       } catch {
         /* ignore */
       }
     };
     check();
-    const id = setInterval(check, 15000); // re-check every 15s while on this screen
+    // Poll quickly at first (catches doctor ending call right after a drop), then slow down.
+    const fast = setInterval(check, 3000);
+    const slow = setTimeout(() => {
+      clearInterval(fast);
+      setInterval(check, 15000);
+    }, 30000);
     return () => {
       active = false;
-      clearInterval(id);
+      clearInterval(fast);
+      clearTimeout(slow);
     };
   }, [callStatus, roomToken]);
 
@@ -285,6 +297,7 @@ export default function PatientConsultationRoom({
     pcRef.current?.close();
     localStreamRef.current?.getTracks().forEach((t) => t.stop());
     channelRef.current?.unsubscribe();
+    setCallEndReason("normal");
     setCallStatus("ended");
   }
 
@@ -439,26 +452,97 @@ export default function PatientConsultationRoom({
   }
 
   if (callStatus === "ended") {
-    return (
-      <div
+    const wrapperStyle: React.CSSProperties = {
+      display: "flex",
+      justifyContent: "center",
+      padding: "48px 24px",
+    };
+    const cardStyle: React.CSSProperties = {
+      maxWidth: 480,
+      width: "100%",
+      background: C.surface,
+      border: `1px solid ${C.border2}`,
+      borderRadius: 6,
+      padding: 28,
+      textAlign: "center",
+      boxShadow: "0 8px 24px rgba(40,30,20,0.06)",
+    };
+    const rejoinBtn = (
+      <button
+        type="button"
+        onClick={() => {
+          joinedRef.current = false;
+          setCallEndReason("normal");
+          setCallStatus("waiting");
+        }}
         style={{
-          display: "flex",
-          justifyContent: "center",
-          padding: "48px 24px",
+          display: "inline-block",
+          background: C.accent,
+          color: C.surface,
+          border: "none",
+          borderRadius: 6,
+          padding: "10px 18px",
+          fontSize: 14,
+          fontWeight: 600,
+          cursor: "pointer",
         }}
       >
-        <div
-          style={{
-            maxWidth: 480,
-            width: "100%",
-            background: C.surface,
-            border: `1px solid ${C.border2}`,
-            borderRadius: 6,
-            padding: 28,
-            textAlign: "center",
-            boxShadow: "0 8px 24px rgba(40,30,20,0.06)",
-          }}
-        >
+        Return to waiting room
+      </button>
+    );
+
+    if (callEndReason === "dropped") {
+      return (
+        <div style={wrapperStyle}>
+          <div style={{ ...cardStyle, border: `1px solid ${C.danger}33` }}>
+            <p
+              style={{
+                fontSize: 11,
+                fontWeight: 600,
+                textTransform: "uppercase",
+                letterSpacing: "0.14em",
+                color: C.danger,
+                margin: "0 0 6px",
+              }}
+            >
+              CONNECTION LOST
+            </p>
+            <h1
+              style={{ fontSize: 24, fontWeight: 600, color: C.ink, margin: "0 0 12px" }}
+            >
+              Call was interrupted
+            </h1>
+            <p
+              style={{ fontSize: 14, color: C.ink2, margin: "0 0 22px", lineHeight: 1.55 }}
+            >
+              Your connection to {doctorName} dropped unexpectedly. You can
+              return to the waiting room to reconnect if the consultation is
+              still ongoing.
+            </p>
+            {rejoinBtn}
+            {reportReady && (
+              <div style={{ marginTop: 16 }}>
+                <Link
+                  href={`/consultation/${roomToken}/report`}
+                  style={{
+                    fontSize: 13,
+                    color: C.accent,
+                    textDecoration: "underline",
+                  }}
+                >
+                  View visit summary (available)
+                </Link>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    // Normal intentional end
+    return (
+      <div style={wrapperStyle}>
+        <div style={cardStyle}>
           <p
             style={{
               fontSize: 11,
@@ -472,22 +556,12 @@ export default function PatientConsultationRoom({
             CONSULTATION COMPLETE
           </p>
           <h1
-            style={{
-              fontSize: 24,
-              fontWeight: 600,
-              color: C.ink,
-              margin: "0 0 12px",
-            }}
+            style={{ fontSize: 24, fontWeight: 600, color: C.ink, margin: "0 0 12px" }}
           >
             Your visit is done
           </h1>
           <p
-            style={{
-              fontSize: 14,
-              color: C.ink2,
-              margin: "0 0 22px",
-              lineHeight: 1.55,
-            }}
+            style={{ fontSize: 14, color: C.ink2, margin: "0 0 22px", lineHeight: 1.55 }}
           >
             Thank you for your consultation with {doctorName}.
             {reportReady
@@ -527,12 +601,12 @@ export default function PatientConsultationRoom({
             </span>
           )}
 
-          {/* Dropped-call recovery: allow rejoining if the doctor restarts. */}
           <div style={{ marginTop: 16 }}>
             <button
               type="button"
               onClick={() => {
                 joinedRef.current = false;
+                setCallEndReason("normal");
                 setCallStatus("waiting");
               }}
               style={{

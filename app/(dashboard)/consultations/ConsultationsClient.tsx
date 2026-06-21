@@ -18,6 +18,16 @@ export type RoomSummary = {
   hasSoapNote: boolean;
 };
 
+export type CptCodeData = {
+  id: string;
+  code: string;
+  description: string;
+  status: "SUGGESTED" | "APPROVED" | "REJECTED";
+  source: "AI" | "MANUAL";
+  confidence: number | null;
+  rationale: string | null;
+};
+
 export type SoapData = {
   id: string;
   subjective: string;
@@ -31,6 +41,7 @@ export type SoapData = {
   followUpDate: string | null;
   prescriptions: string[];
   approvedAt: string | null;
+  cptCodes: CptCodeData[];
 };
 
 export type PastConsultation = {
@@ -58,8 +69,11 @@ export default function ConsultationsClient({
   const [tab, setTab] = useState<Tab>("active");
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
   const [autoOpenPastId, setAutoOpenPastId] = useState<string | null>(null);
+  // Rooms ended this session — immediately removed from the active list.
+  const [endedRoomIds, setEndedRoomIds] = useState<Set<string>>(new Set());
 
   const handleCallEnded = (roomId: string) => {
+    setEndedRoomIds((prev) => new Set(prev).add(roomId));
     setSelectedRoomId(null);
     setAutoOpenPastId(roomId);
     setTab("past");
@@ -131,8 +145,9 @@ export default function ConsultationsClient({
           </div>
           <div className="pl-5">
             <RoomManagementPanel
-              rooms={active}
+              rooms={active.filter((r) => !endedRoomIds.has(r.id))}
               patients={patients}
+              selectedRoomId={selectedRoomId}
               onJoinRoom={setSelectedRoomId}
             />
           </div>

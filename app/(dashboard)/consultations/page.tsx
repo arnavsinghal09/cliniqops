@@ -60,6 +60,15 @@ export default async function ConsultationsPage() {
               : null,
             prescriptions: note.prescriptions,
             approvedAt: note.approvedAt ? note.approvedAt.toISOString() : null,
+            cptCodes: note.cptCodes.map((c) => ({
+              id: c.id,
+              code: c.code,
+              description: c.description,
+              status: c.status as "SUGGESTED" | "APPROVED" | "REJECTED",
+              source: c.source as "AI" | "MANUAL",
+              confidence: c.confidence,
+              rationale: c.rationale,
+            })),
           }
         : null,
     };
